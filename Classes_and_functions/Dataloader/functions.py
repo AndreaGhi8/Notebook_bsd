@@ -3,39 +3,34 @@
 from Classes_and_functions import imports
 
 def start_plot(train_data, sonar_radius=50, figsize = (15,10)):
-    global plt
-    plt.figure(figsize=figsize)
+    imports.plt.figure(figsize=figsize)
 
-    ax = plt.gca()
+    ax = imports.plt.gca()
     ax.set_xlim([0, train_data.poses[:, 0].max()+sonar_radius])
     ax.set_ylim([0, train_data.poses[:, 1].max()+sonar_radius])
 
 def plot_synth_poses_train(td, color="blue"):
-    global plt
-    plt.scatter(td.poses[:td.synth, 0], td.poses[:td.synth, 1], c=color, marker='o', linestyle='None', s =1)
+    imports.plt.scatter(td.poses[:td.synth, 0], td.poses[:td.synth, 1], c=color, marker='o', linestyle='None', s =1)
 
 def plot_synth_poses_val(vd, color="red"):
-    global plt
-    plt.scatter(vd.poses[:, 0], vd.poses[:, 1], c=color, marker='o', linestyle='None', s = 1)
+    imports.plt.scatter(vd.poses[:, 0], vd.poses[:, 1], c=color, marker='o', linestyle='None', s = 1)
 
 def parse_pose(pose):
     x, y, Y_deg = imports.np.array(pose, copy=True)
-    # Y_deg = 90 + Y_deg
+    Y_deg = 90 + Y_deg
     Y_deg %= 360
     Y = Y_deg * imports.math.pi / 180
     return x, y, Y, Y_deg
 
 def scatter_point(x, y, color, label=None):
-    global plt
     if label is None:
-        plt.scatter(x, y, c=color, s = 20.51)
+        imports.plt.scatter(x, y, c=color, s = 20.51)
     else:
-        plt.scatter(x, y, c=color, s = 20.51, label=label)
+        imports.plt.scatter(x, y, c=color, s = 20.51, label=label)
         
 def scatter_orientation(x, y, Y, color, rad=50):
-    global plt
     dy, dx = rad*imports.math.cos(Y), rad*imports.math.sin(Y)
-    plt.arrow(x, y, dx, dy, color=color)
+    imports.plt.arrow(x, y, dx, dy, color=color)
 
 def sector_mask(shape,centre,radius, Y_deg):
     angle_range = (Y_deg-60, Y_deg+60)
@@ -92,13 +87,11 @@ def generate_interference_mask_transparent(x1, y1, Y1, Y1_deg, x2, y2, Y2, Y2_de
     return mask3*0, iou
         
 def scatter_real_orientation(x, y, Y, color, rad=50):
-    global plt
     dx, dy = rad*imports.math.cos(Y), rad*imports.math.sin(Y)
-    plt.arrow(x, y, dy, dx, color=color)
+    imports.plt.arrow(x, y, dy, dx, color=color)
 
 def plot_real_poses(rd, color="pink"):
-    global plt
-    plt.scatter(rd.poses[:, 0], rd.poses[:, 1], c=color, marker='o', linestyle='None', s =1)
+    imports.plt.scatter(rd.poses[:, 0], rd.poses[:, 1], c=color, marker='o', linestyle='None', s =1)
     for i in range(0, rd.poses.shape[0], 5):
         q_x, q_y, q_Y_deg = rd.poses[i, :]
         scatter_real_orientation(q_x, q_y, (q_Y_deg*imports.np.pi/180) % imports.np.pi, "mediumturquoise")
@@ -117,3 +110,109 @@ def gtquery(database, x, y, yaw_deg):
     closest_index = closest_index.item()
     
     return closest_index
+
+def plot_train_data(data):
+    imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
+    for i in range(0, data.poses.shape[0], 20):
+        q_x, q_y, q_Y_deg = data.poses[i, :]
+        q_Y = (q_Y_deg+90)*imports.np.pi/180
+        q_Y %= 2*imports.np.pi
+        scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
+
+def plot_data(data):
+    imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
+    for i in range(0, data.poses.shape[0], 5):
+        q_x, q_y, q_Y_deg = data.poses[i, :]
+        q_Y = (q_Y_deg+90)*imports.np.pi/180
+        q_Y %= 2*imports.np.pi
+        scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
+
+def filter_data(train_data, data_to_filter):
+    train_poses = []
+    for pose_file in train_data.pose_paths:
+        pose = imports.np.loadtxt(pose_file)[:3]
+        train_poses.append(pose)
+    train_poses = imports.np.array(train_poses)
+
+    val_poses = []
+    for pose_file in data_to_filter.pose_paths:
+        pose = imports.np.loadtxt(pose_file)[:3]
+        val_poses.append(pose)
+    val_poses = imports.np.array(val_poses)
+
+    keep_poses = []
+    for i in imports.tqdm(range(len(val_poses)), desc="Filtering validation poses"):
+        dists = imports.np.linalg.norm(train_poses - val_poses[i], axis=1)
+        if imports.np.min(dists) <= 0.5:
+            keep_poses.append(i)
+
+    keep_poses = imports.np.array(keep_poses)
+
+    data_to_filter.imgs = data_to_filter.imgs[keep_poses]
+    data_to_filter.pose_paths = data_to_filter.pose_paths[keep_poses]
+    data_to_filter.poses = data_to_filter.poses[keep_poses]
+    data_to_filter.synth = len(data_to_filter.imgs)
+
+    new_val_poses = []
+    for pose_file in data_to_filter.pose_paths:
+        pose = imports.np.loadtxt(pose_file)[:3]
+        new_val_poses.append(pose)
+    new_val_poses = imports.np.array(new_val_poses)
+
+    closest_indices = []
+    for val_pose in new_val_poses:
+        dists = imports.np.linalg.norm(train_poses[:, :2] - val_pose[:2], axis=1)
+        closest_idx = imports.np.argmin(dists)
+        closest_indices.append(closest_idx)
+
+    data_to_filter.closest_indices = imports.np.array(closest_indices)
+
+def localization(train_data, val_data, real_data):
+    start_plot(train_data)
+    train_data.apply_random_rot = False
+
+    imports.plt.scatter(real_data.poses[:, 0], real_data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
+    for i in range(0, 2000, 5):
+        q_pose = real_data.poses[i]
+        q_x, q_y, q_Y_deg = q_pose
+        q_Y_deg = (90+q_Y_deg)%360
+        q_Y = q_Y_deg * imports.np.pi/180
+        q_pose = imports.np.array([q_x, q_y, q_Y_deg])
+        scatter_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
+
+    plot_synth_poses_train(train_data, "blue")
+    plot_synth_poses_val(val_data, "red")
+
+    train_data.apply_random_rot = False
+
+    realidx = imports.random.randint(0, real_data.poses.shape[0])
+    q_x, q_y, q_Y_deg = q_pose = real_data.poses[realidx]
+
+    q_Y_deg = (q_Y_deg+90)%360
+    q_Y = q_Y_deg * imports.np.pi/180
+    q_pose = imports.np.array([q_x, q_y, q_Y_deg])
+    scatter_orientation(q_x, q_y, q_Y, "orange", rad=50)
+
+    q_pose2 = imports.np.array([q_x, q_y, (q_Y_deg-90)%360])
+    gt_pose_idx = gtquery(train_data, q_x, q_y, q_pose2[2])
+    train_closest = train_data[gt_pose_idx][2]
+
+    x2,y2, Y2, Y2_deg = parse_pose(train_closest)
+    scatter_orientation(x2, y2, Y2, "green")
+    scatter_point(x2, y2, "green")
+
+ 
+    mask3, iou = generate_interference_mask(x2, y2, Y2, Y2_deg, q_x, q_y, q_Y, q_Y_deg)
+    print("iou:", iou)
+    print("yaw difference", abs(Y2_deg-q_Y_deg), "deg")
+    print("localization error: ", imports.np.linalg.norm(train_closest[:2]-q_pose2[:2], ord=2)/10, "meters")
+
+    imports.plt.imshow(mask3, cmap="gray")
+    imports.plt.figure()
+        
+    f, axarr = imports.plt.subplots(1, 2, figsize=(15, 15))
+    axarr[0].set_title("real, query image")
+    axarr[1].set_title("closest image from synthetic database")
+
+    axarr[0].imshow(real_data[realidx][1].numpy()[0, :, :], cmap='gray')
+    axarr[1].imshow(train_data[gt_pose_idx][1].numpy()[0, :, :], cmap='gray')
