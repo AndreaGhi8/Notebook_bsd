@@ -17,6 +17,7 @@ def load_state(model, path):
     return model
 
 class Mlp(imports.nn.Module):
+
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=imports.nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
@@ -34,7 +35,8 @@ class Mlp(imports.nn.Module):
         x = self.drop(x)
         return x
 
-class Attention(nn.Module):
+class Attention(imports.nn.Module):
+
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=1):
         super().__init__()
         assert dim % num_heads == 0, f"dim {dim} should be divided by num_heads {num_heads}."
@@ -78,7 +80,7 @@ class Attention(nn.Module):
 
         return x
     
-class Block(nn.Module):
+class Block(imports.nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=imports.nn.GELU, norm_layer=imports.nn.LayerNorm, sr_ratio=1):
@@ -100,9 +102,7 @@ class Block(nn.Module):
 
         return x
 
-class PatchEmbed(nn.Module):
-    """ Image to Patch Embedding
-    """
+class PatchEmbed(imports.nn.Module):
 
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
         super().__init__()
@@ -128,6 +128,7 @@ class PatchEmbed(nn.Module):
         return x, (H, W)
     
 class PyramidVisionTransformer(imports.nn.Module):
+
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=imports.nn.LayerNorm, depths=[3, 4, 6, 3],
@@ -179,7 +180,7 @@ class PyramidVisionTransformer(imports.nn.Module):
         if H * W == self.patch_embed1.num_patches:
             return pos_embed
         else:
-            return F.interpolate(
+            return imports.F.interpolate(
                 pos_embed.reshape(1, patch_embed.H, patch_embed.W, -1).permute(0, 3, 1, 2),
                 size=(H, W), mode="bilinear").reshape(1, -1, H * W).permute(0, 2, 1)
 
@@ -224,9 +225,7 @@ class PyramidVisionTransformer(imports.nn.Module):
         return out_dict
 
 class MLP(imports.nn.Module):
-    """
-    Linear Embedding
-    """
+
     def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
         self.proj = imports.nn.Linear(input_dim, embed_dim)
@@ -284,6 +283,7 @@ class SegFormerHead2(imports.nn.Module):
         return [x , _c1, _c2, _c3, _c4]
     
 class Model(imports.nn.Module):
+
     def __init__(self):
         super().__init__()
         channels = [16, 32, 64, 128]
