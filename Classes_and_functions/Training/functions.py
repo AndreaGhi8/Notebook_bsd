@@ -67,3 +67,33 @@ def computeAverageMetricError(pred_indices, gt_indices, train_data, k=1):
         squared_dist = imports.torch.min(squared_dist, dim=1)[0]
     
     return squared_dist.mean()
+
+def get_descriptors(train_data, val_data, net):
+    with imports.torch.no_grad():
+
+        emb_size = 256
+        
+        train_pred_embeds = imports.torch.zeros((train_data.synth, emb_size))
+        for idx in imports.tqdm(range(train_data.synth)):
+            image, _, _, _, _, _ = train_data[idx]
+            image = image[None].cuda()
+            descriptor = net(image, reco=False)[0, :].detach().cpu()
+            train_pred_embeds[idx, :] = descriptor
+        train_data.computeDescriptors(net)
+        train_pred_embeds = imports.torch.Tensor(train_data.descriptors)
+        
+        val_data.computeDescriptors(net)
+        val_pred_embeds = imports.torch.Tensor(val_data.descriptors)
+        
+        gt_indices = val_data.closest_indices
+        
+        pred_indices      = correlate_poses_topk(val_pred_embeds, train_pred_embeds, k=1).squeeze()
+        pred_indices_top5 = correlate_poses_topk(val_pred_embeds, train_pred_embeds, k=5)
+        
+        print(pred_indices.shape, pred_indices_top5.shape)
+        
+        avg_metric_e      = computeAverageMetricError(pred_indices,      gt_indices, train_data, k=1)
+        avg_metric_e_top5 = computeAverageMetricError(pred_indices_top5, gt_indices, train_data, k=5)
+        
+        print("avg_metric_e     :", avg_metric_e)
+        print("avg_metric_e_top5:", avg_metric_e_top5)
