@@ -41,3 +41,6 @@ def train_epochs(writer, train_data, train_dataloader, net, optimizer, scheduler
         print("train loss mean:", imports.np.array(train_losses).mean())
         
         model_classes.save_state(epoch, net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
+
+
+        # for idx, (image, gtimage, gtpose, _, _, mode) in imports.tqdm(enumerate(val_dataloader), total=len(val_dataloader)):

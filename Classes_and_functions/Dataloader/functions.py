@@ -17,10 +17,10 @@ def plot_synth_poses_val(vd, color="red"):
 
 def parse_pose(pose):
     x, y, Y_deg = imports.np.array(pose, copy=True)
-    Y_deg = 90 + Y_deg
-    Y_deg %= 360
-    Y = Y_deg * imports.math.pi / 180
-    return x, y, Y, Y_deg
+    Y_deg_ = Y_deg + 90
+    Y_deg_ %= 360
+    Y = Y_deg_ * imports.math.pi / 180
+    return x, y, Y, Y_deg_
 
 def scatter_point(x, y, color, label=None):
     if label is None:
@@ -28,8 +28,8 @@ def scatter_point(x, y, color, label=None):
     else:
         imports.plt.scatter(x, y, c=color, s = 20.51, label=label)
         
-def scatter_orientation(x, y, Y, color, rad=50):
-    dy, dx = rad*imports.math.cos(Y), rad*imports.math.sin(Y)
+def scatter_orientation(x, y, Y_r, color, rad=50):
+    dy, dx = rad*imports.math.cos(Y_r), rad*imports.math.sin(Y_r)
     imports.plt.arrow(x, y, dx, dy, color=color)
 
 def sector_mask(shape,centre,radius, Y_deg):
@@ -96,13 +96,19 @@ def plot_real_poses(rd, color="pink"):
         q_x, q_y, q_Y_deg = rd.poses[i, :]
         scatter_real_orientation(q_x, q_y, (q_Y_deg*imports.np.pi/180) % imports.np.pi, "mediumturquoise")
 
-def gtquery(database, x, y, yaw_deg):
+def gtquery_process(database, x, y, yaw_deg):
     dist_matrix = imports.torch.cdist(imports.torch.Tensor([x,y]).unsqueeze(0), database.poses[:database.synth, :2].unsqueeze(0)).squeeze()
 
     _, cand_indx = imports.torch.topk(dist_matrix, 5, dim=-1, largest=False, sorted=True)
+    print("dist matrix", dist_matrix[cand_indx])
 
     candidates = database.poses[:database.synth, 2][cand_indx]
-    diff_yaw = abs(candidates-yaw_deg)%360
+    candidates = imports.torch.Tensor([parse_pose([0,0,cand])[3] for cand in candidates])
+    print("cand", candidates)
+    print("yaw_deg", yaw_deg)
+
+    diff_yaw = imports.torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
+    print("diff yaw", diff_yaw)
 
     min_yaw_idx = imports.torch.argmin(diff_yaw, dim=-1)
 
@@ -115,7 +121,7 @@ def plot_train_data(data):
     imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
     for i in range(0, data.poses.shape[0], 20):
         q_x, q_y, q_Y_deg = data.poses[i, :]
-        q_Y = (q_Y_deg+90)*imports.np.pi/180
+        q_Y = (q_Y_deg)*imports.np.pi/180
         q_Y %= 2*imports.np.pi
         scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
 
@@ -123,7 +129,7 @@ def plot_data(data):
     imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
     for i in range(0, data.poses.shape[0], 5):
         q_x, q_y, q_Y_deg = data.poses[i, :]
-        q_Y = (q_Y_deg+90)*imports.np.pi/180
+        q_Y = (q_Y_deg)*imports.np.pi/180
         q_Y %= 2*imports.np.pi
         scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
 
@@ -194,13 +200,12 @@ def localization(train_data, val_data, real_data):
     scatter_orientation(q_x, q_y, q_Y, "orange", rad=50)
 
     q_pose2 = imports.np.array([q_x, q_y, (q_Y_deg-90)%360])
-    gt_pose_idx = gtquery(train_data, q_x, q_y, q_pose2[2])
+    gt_pose_idx = gtquery_process(train_data, q_x, q_y, q_pose2[2])
     train_closest = train_data[gt_pose_idx][2]
 
     x2,y2, Y2, Y2_deg = parse_pose(train_closest)
     scatter_orientation(x2, y2, Y2, "green")
     scatter_point(x2, y2, "green")
-
  
     mask3, iou = generate_interference_mask(x2, y2, Y2, Y2_deg, q_x, q_y, q_Y, q_Y_deg)
     print("iou:", iou)

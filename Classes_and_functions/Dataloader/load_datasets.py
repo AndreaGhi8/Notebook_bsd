@@ -2,6 +2,7 @@
 
 from Classes_and_functions import imports
 from Classes_and_functions.Dataloader import load_poses
+from Classes_and_functions.Dataloader import functions
 
 class SonarDescriptorDatasetFull(imports.Dataset):
     def __init__(self, datapath, database4val=None):
@@ -119,16 +120,18 @@ class SonarDescriptorDatasetFull(imports.Dataset):
         x,y,yaw_deg = realpose
         #yaw_deg = (90+yaw_deg)%360
         #print("realpose:", x, y, yaw_deg)
-        return self.gtquery(x, y, yaw_deg)
+        return self.gtquery(x, y, yaw_deg) 
 
     def gtquery(self, x, y, yaw_deg):
         
         dist_matrix = imports.torch.cdist(imports.torch.Tensor([x,y]).unsqueeze(0), self.poses[:self.synth, :2].unsqueeze(0)).squeeze()
 
         _, cand_indx = imports.torch.topk(dist_matrix, 5, dim=-1, largest=False, sorted=True)
-
+        
         candidates = self.poses[:self.synth, 2][cand_indx]
-        diff_yaw = abs(candidates-yaw_deg)
+        candidates = imports.torch.Tensor([functions.parse_pose([0,0,cand])[3] for cand in candidates])
+
+        diff_yaw = imports.torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
 
         min_yaw_idx = imports.torch.argmin(diff_yaw, dim=-1)
 

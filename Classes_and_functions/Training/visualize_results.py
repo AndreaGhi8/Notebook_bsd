@@ -7,6 +7,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
 
     if plot:
         functions.start_plot(train_data)
+    print("its me")
 
     q_image_a, q_image, q_pose, _, _, _ = val_data[q_idx]
     q_image_a = q_image_a[None].cuda()
@@ -33,7 +34,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
         functions.scatter_point(min_x, min_y, 'gold', label="predicted pose")
         functions.scatter_orientation(min_x, min_y, min_Y, "gold")
     
-    gt_pose_idx = functions.gtquery(train_data, q_x, q_y, q_Y_deg)
+    gt_pose_idx = functions.gtquery_process(train_data, q_x, q_y, q_Y_deg)
     gt_pose = train_data[gt_pose_idx][2]
 
     gt_x, gt_y, gt_Y, gt_Y_deg = functions.parse_pose(gt_pose)
