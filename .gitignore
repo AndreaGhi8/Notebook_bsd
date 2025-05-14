@@ -2,3 +2,6 @@
 
 Datasets/
 correct_model_3/
+runs/
+.ipynb_checkpoints/
+train_data.pickle/
