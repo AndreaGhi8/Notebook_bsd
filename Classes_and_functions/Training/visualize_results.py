@@ -70,6 +70,30 @@ def process(q_idx, net, train_data, val_data, plot=True):
         
     return loca_error, orie_error
 
+def check_process(gt_pose, net, train_data, val_data, plot=True):
+
+    if plot:
+        functions.start_plot(train_data)
+    print("its me")
+
+    gt_x, gt_y, gt_Y, gt_Y_deg = functions.parse_pose(gt_pose)
+    if plot:
+                   
+        functions.scatter_orientation(gt_x, gt_y, gt_Y, "green")
+        functions.scatter_point(gt_x, gt_y, "green", label="database gt closest pose")
+    
+    if plot:
+        imports.plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
+        imports.plt.scatter(val_data.poses[:, 0], val_data.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
+
+    q_pose_idx = functions.gtquery_process(train_data, gt_x, gt_y, gt_Y_deg)
+    q_pose = train_data[q_pose_idx][2]
+
+    q_x, q_y, q_Y, q_Y_deg = functions.parse_pose(q_pose)
+    if plot:
+        functions.scatter_point(q_x, q_y, 'magenta', label="val pose (query)")
+        functions.scatter_orientation(q_x, q_y, q_Y, "magenta")
+
 def analyze_feature_robustness(train_data, net):
     q_idx = 200
     q_image_a, q_image, q_pose, _, _, _ = train_data[q_idx]
