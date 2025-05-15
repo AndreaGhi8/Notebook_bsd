@@ -117,6 +117,25 @@ def gtquery_process(database, x, y, yaw_deg):
     
     return closest_index
 
+def gtquery_process_check(database, x, y, yaw_deg):
+    dist_matrix = imports.torch.cdist(imports.torch.Tensor([x,y]).unsqueeze(0), database.poses[:database.synth, :2].unsqueeze(0)).squeeze()
+
+    _, cand_indx = imports.torch.topk(dist_matrix, 5, dim=-1, largest=False, sorted=True)
+
+    candidates = database.poses[:database.synth, 2][cand_indx]
+    candidates = imports.torch.Tensor([parse_pose([0,0,cand])[3] for cand in candidates])
+
+    diff_yaw = imports.torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
+    #print("diff yaw", diff_yaw)
+    min_diff_yaw = diff_yaw.min()
+
+    min_yaw_idx = imports.torch.argmin(diff_yaw, dim=-1)
+
+    closest_index = cand_indx[min_yaw_idx]
+    closest_index = closest_index.item()
+    
+    return closest_index, min_diff_yaw
+
 def plot_train_data(data):
     imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
     for i in range(0, data.poses.shape[0], 20):

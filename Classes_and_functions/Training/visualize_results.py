@@ -34,7 +34,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
         functions.scatter_point(min_x, min_y, 'gold', label="predicted pose")
         functions.scatter_orientation(min_x, min_y, min_Y, "gold")
     
-    gt_pose_idx = functions.gtquery_process(train_data, q_x, q_y, q_Y_deg)
+    gt_pose_idx, _ = functions.gtquery_process(train_data, q_x, q_y, q_Y_deg)
     gt_pose = train_data[gt_pose_idx][2]
 
     gt_x, gt_y, gt_Y, gt_Y_deg = functions.parse_pose(gt_pose)
@@ -70,11 +70,10 @@ def process(q_idx, net, train_data, val_data, plot=True):
         
     return loca_error, orie_error
 
-def check_process(gt_pose, net, train_data, val_data, plot=True):
+def check_process(gt_pose, train_data, val_data, plot=True):
 
     if plot:
         functions.start_plot(train_data)
-    print("its me")
 
     gt_x, gt_y, gt_Y, gt_Y_deg = functions.parse_pose(gt_pose)
     if plot:
@@ -86,13 +85,24 @@ def check_process(gt_pose, net, train_data, val_data, plot=True):
         imports.plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
         imports.plt.scatter(val_data.poses[:, 0], val_data.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
 
-    q_pose_idx = functions.gtquery_process(train_data, gt_x, gt_y, gt_Y_deg)
+    q_pose_idx, min_diff_yaw = functions.gtquery_process_check(train_data, gt_x, gt_y, gt_Y_deg)
+    if min_diff_yaw > 7.5:
+        print("ERROR!! min_diff_yaw > 7.5")
+    #else:
+        #print("min_diff_yaw: ", min_diff_yaw)
     q_pose = train_data[q_pose_idx][2]
 
     q_x, q_y, q_Y, q_Y_deg = functions.parse_pose(q_pose)
     if plot:
         functions.scatter_point(q_x, q_y, 'magenta', label="val pose (query)")
         functions.scatter_orientation(q_x, q_y, q_Y, "magenta")
+    
+    mask3, iou = functions.generate_interference_mask(gt_x, gt_y, gt_Y, gt_Y_deg, q_x, q_y, q_Y, q_Y_deg)
+
+    if plot:
+        imports.plt.imshow(mask3, cmap="gray")
+        imports.plt.legend(loc="lower right")
+        imports.plt.figure()
 
 def analyze_feature_robustness(train_data, net):
     q_idx = 200
