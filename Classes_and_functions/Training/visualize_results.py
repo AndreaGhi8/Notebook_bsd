@@ -70,7 +70,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
         
     return loca_error, orie_error
 
-def check_process(gt_pose, train_data, val_data, plot=True):
+def check_process(gt_pose, train_data, dataset, plot=True):
 
     if plot:
         functions.start_plot(train_data)
@@ -83,11 +83,13 @@ def check_process(gt_pose, train_data, val_data, plot=True):
     
     if plot:
         imports.plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
-        imports.plt.scatter(val_data.poses[:, 0], val_data.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
+        imports.plt.scatter(dataset.poses[:, 0], dataset.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
 
     q_pose_idx, min_diff_yaw = functions.gtquery_process_check(train_data, gt_x, gt_y, gt_Y_deg)
     if min_diff_yaw > 7.5:
         print("ERROR!! min_diff_yaw > 7.5")
+        print(q_pose_idx)
+        dataset = functions.remove_data_at_index(train_data, q_pose_idx)
     #else:
         #print("min_diff_yaw: ", min_diff_yaw)
     q_pose = train_data[q_pose_idx][2]
@@ -103,6 +105,8 @@ def check_process(gt_pose, train_data, val_data, plot=True):
         imports.plt.imshow(mask3, cmap="gray")
         imports.plt.legend(loc="lower right")
         imports.plt.figure()
+    
+    return dataset
 
 def analyze_feature_robustness(train_data, net):
     q_idx = 200

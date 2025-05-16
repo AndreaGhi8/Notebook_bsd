@@ -1,6 +1,7 @@
 # Ghiotto Andrea   2118418
 
 from Classes_and_functions import imports
+from Classes_and_functions.Training import visualize_results
 
 def start_plot(train_data, sonar_radius=50, figsize = (15,10)):
     imports.plt.figure(figsize=figsize)
@@ -218,7 +219,7 @@ def localization(train_data, val_data, real_data):
     q_pose = imports.np.array([q_x, q_y, q_Y_deg])
     scatter_orientation(q_x, q_y, q_Y, "orange", rad=50)
 
-    q_pose2 = imports.np.array([q_x, q_y, (q_Y_deg-90)%360])
+    q_pose2 = imports.np.array([q_x, q_y, (q_Y_deg)%360])
     gt_pose_idx = gtquery_process(train_data, q_x, q_y, q_pose2[2])
     train_closest = train_data[gt_pose_idx][2]
 
@@ -240,3 +241,20 @@ def localization(train_data, val_data, real_data):
 
     axarr[0].imshow(real_data[realidx][1].numpy()[0, :, :], cmap='gray')
     axarr[1].imshow(train_data[gt_pose_idx][1].numpy()[0, :, :], cmap='gray')
+
+def check_gt(train_data, dataset):
+    dataloader = imports.DataLoader(dataset, batch_size=1, shuffle=False)
+    for batch in dataloader:
+        _, _, gtpose, _, _, _ = batch
+        gt_pose = gtpose[0]
+        dataset = visualize_results.check_process(gt_pose, train_data, dataset, plot=False)
+    
+    return dataset
+
+def remove_data_at_index(dataset, index):
+
+    dataset.poses = imports.np.delete(dataset.poses, index, axis=0)
+    dataset.pose_paths = imports.np.delete(dataset.pose_paths, index, axis=0)
+    dataset.synth = len(dataset.imgs)
+
+    return dataset
