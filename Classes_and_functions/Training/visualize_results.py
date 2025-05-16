@@ -34,7 +34,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
         functions.scatter_point(min_x, min_y, 'gold', label="predicted pose")
         functions.scatter_orientation(min_x, min_y, min_Y, "gold")
     
-    gt_pose_idx, _ = functions.gtquery_process(train_data, q_x, q_y, q_Y_deg)
+    gt_pose_idx = functions.gtquery_process(train_data, q_x, q_y, q_Y_deg)
     gt_pose = train_data[gt_pose_idx][2]
 
     gt_x, gt_y, gt_Y, gt_Y_deg = functions.parse_pose(gt_pose)

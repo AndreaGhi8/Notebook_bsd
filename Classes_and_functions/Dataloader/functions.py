@@ -140,7 +140,7 @@ def plot_train_data(data):
     imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
     for i in range(0, data.poses.shape[0], 20):
         q_x, q_y, q_Y_deg = data.poses[i, :]
-        q_Y = (q_Y_deg)*imports.np.pi/180
+        q_Y = (q_Y_deg+90)*imports.np.pi/180
         q_Y %= 2*imports.np.pi
         scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
 
@@ -148,7 +148,7 @@ def plot_data(data):
     imports.plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
     for i in range(0, data.poses.shape[0], 5):
         q_x, q_y, q_Y_deg = data.poses[i, :]
-        q_Y = (q_Y_deg)*imports.np.pi/180
+        q_Y = (q_Y_deg+90)*imports.np.pi/180
         q_Y %= 2*imports.np.pi
         scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
 
@@ -200,7 +200,7 @@ def localization(train_data, val_data, real_data):
     for i in range(0, 2000, 5):
         q_pose = real_data.poses[i]
         q_x, q_y, q_Y_deg = q_pose
-        q_Y_deg = (90+q_Y_deg)%360
+        q_Y_deg = (q_Y_deg+90)%360
         q_Y = q_Y_deg * imports.np.pi/180
         q_pose = imports.np.array([q_x, q_y, q_Y_deg])
         scatter_orientation(q_x, q_y, q_Y, "mediumturquoise", rad=10)
