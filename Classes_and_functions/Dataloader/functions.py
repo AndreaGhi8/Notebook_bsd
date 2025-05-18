@@ -127,7 +127,6 @@ def gtquery_process_check(database, x, y, yaw_deg):
     candidates = imports.torch.Tensor([parse_pose([0,0,cand])[3] for cand in candidates])
 
     diff_yaw = imports.torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
-    #print("diff yaw", diff_yaw)
     min_diff_yaw = diff_yaw.min()
 
     min_yaw_idx = imports.torch.argmin(diff_yaw, dim=-1)
@@ -244,17 +243,28 @@ def localization(train_data, val_data, real_data):
 
 def check_gt(train_data, dataset):
     dataloader = imports.DataLoader(dataset, batch_size=1, shuffle=False)
+    index = 0
+    indices_to_remove = []
     for batch in dataloader:
         _, _, gtpose, _, _, _ = batch
         gt_pose = gtpose[0]
-        dataset = visualize_results.check_process(gt_pose, train_data, dataset, plot=False)
-    
+        visualize_results.check_process(gt_pose, index, indices_to_remove, train_data, dataset, plot=False)
+        index += 1
+    dataset = remove_data_at_indices(dataset, indices_to_remove)
     return dataset
 
-def remove_data_at_index(dataset, index):
+def remove_data_at_indices(dataset, indices):
 
-    dataset.poses = imports.np.delete(dataset.poses, index, axis=0)
-    dataset.pose_paths = imports.np.delete(dataset.pose_paths, index, axis=0)
+    dataset.imgs = imports.np.delete(dataset.imgs, indices, axis=0)
+    
+    if isinstance(dataset.poses, imports.torch.Tensor):
+        poses_np = dataset.poses.numpy()
+        poses_np = imports.np.delete(poses_np, indices, axis=0)
+        dataset.poses = imports.torch.tensor(poses_np)
+    else:
+        dataset.poses = imports.np.delete(dataset.poses, indices, axis=0)
+
+    dataset.pose_paths = imports.np.delete(dataset.pose_paths, indices, axis=0)
     dataset.synth = len(dataset.imgs)
 
     return dataset

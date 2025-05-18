@@ -70,7 +70,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
         
     return loca_error, orie_error
 
-def check_process(gt_pose, train_data, dataset, plot=True):
+def check_process(gt_pose, index, indices_to_remove, train_data, dataset, plot=True):
 
     if plot:
         functions.start_plot(train_data)
@@ -86,27 +86,23 @@ def check_process(gt_pose, train_data, dataset, plot=True):
         imports.plt.scatter(dataset.poses[:, 0], dataset.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
 
     q_pose_idx, min_diff_yaw = functions.gtquery_process_check(train_data, gt_x, gt_y, gt_Y_deg)
+
     if min_diff_yaw > 7.5:
-        print("ERROR!! min_diff_yaw > 7.5")
-        print(q_pose_idx)
-        dataset = functions.remove_data_at_index(train_data, q_pose_idx)
-    #else:
-        #print("min_diff_yaw: ", min_diff_yaw)
-    q_pose = train_data[q_pose_idx][2]
+        indices_to_remove.append(index)
+    else:
+        q_pose = train_data[q_pose_idx][2]
 
-    q_x, q_y, q_Y, q_Y_deg = functions.parse_pose(q_pose)
-    if plot:
-        functions.scatter_point(q_x, q_y, 'magenta', label="val pose (query)")
-        functions.scatter_orientation(q_x, q_y, q_Y, "magenta")
-    
-    mask3, iou = functions.generate_interference_mask(gt_x, gt_y, gt_Y, gt_Y_deg, q_x, q_y, q_Y, q_Y_deg)
+        q_x, q_y, q_Y, q_Y_deg = functions.parse_pose(q_pose)
+        if plot:
+            functions.scatter_point(q_x, q_y, 'magenta', label="val pose (query)")
+            functions.scatter_orientation(q_x, q_y, q_Y, "magenta")
+        
+        mask3, iou = functions.generate_interference_mask(gt_x, gt_y, gt_Y, gt_Y_deg, q_x, q_y, q_Y, q_Y_deg)
 
-    if plot:
-        imports.plt.imshow(mask3, cmap="gray")
-        imports.plt.legend(loc="lower right")
-        imports.plt.figure()
-    
-    return dataset
+        if plot:
+            imports.plt.imshow(mask3, cmap="gray")
+            imports.plt.legend(loc="lower right")
+            imports.plt.figure()
 
 def analyze_feature_robustness(train_data, net):
     q_idx = 200
