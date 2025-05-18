@@ -1,6 +1,9 @@
 # Ghiotto Andrea   2118418
 
-from Classes_and_functions import imports
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+
 from Classes_and_functions. Dataloader import functions
 
 def process(q_idx, net, train_data, val_data, plot=True):
@@ -23,8 +26,8 @@ def process(q_idx, net, train_data, val_data, plot=True):
         functions.scatter_orientation(q_x, q_y, q_Y, "magenta")
 
     if plot:
-        imports.plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
-        imports.plt.scatter(val_data.poses[:, 0], val_data.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
+        plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
+        plt.scatter(val_data.poses[:, 0], val_data.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
 
     train_data.apply_random_rot = False
     minidx = train_data.query(q_desc)
@@ -45,21 +48,21 @@ def process(q_idx, net, train_data, val_data, plot=True):
     
     mask3, iou = functions.generate_interference_mask(min_x, min_y, min_Y, min_Y_deg, q_x, q_y, q_Y, q_Y_deg)
 
-    loca_error=imports.np.linalg.norm(gt_pose[:2]-min_pose[:2], ord=2)/10
+    loca_error=np.linalg.norm(gt_pose[:2]-min_pose[:2], ord=2)/10
 
     orie_error = gt_Y_deg - min_Y_deg.item()
-    orie_error = imports.np.abs((orie_error + 180) % 360 - 180)
+    orie_error = np.abs((orie_error + 180) % 360 - 180)
 
     gt_closest_image = train_data[val_data.closest_indices[q_idx]][1]
 
     if plot:
-        imports.plt.imshow(mask3, cmap="gray")
+        plt.imshow(mask3, cmap="gray")
         print("iou:", iou)
-        imports.plt.legend(loc="lower right")
+        plt.legend(loc="lower right")
     
-        imports.plt.figure()
+        plt.figure()
         
-        f, axarr = imports.plt.subplots(1, 3, figsize=(15, 15))
+        f, axarr = plt.subplots(1, 3, figsize=(15, 15))
         axarr[0].set_title("query image")
         axarr[1].set_title("closest image from database")
         axarr[2].set_title("reconstructed query image")
@@ -82,8 +85,8 @@ def check_process(gt_pose, index, indices_to_remove, train_data, dataset, plot=T
         functions.scatter_point(gt_x, gt_y, "green", label="database gt closest pose")
     
     if plot:
-        imports.plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
-        imports.plt.scatter(dataset.poses[:, 0], dataset.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
+        plt.scatter(train_data.poses[:train_data.synth, 0], train_data.poses[:train_data.synth, 1], c="blue", marker='o', linestyle='None', s =1, label="training set positions")
+        plt.scatter(dataset.poses[:, 0], dataset.poses[:, 1], c="red", marker='o', linestyle='None', s =1, label="validation set positions")
 
     q_pose_idx, min_diff_yaw = functions.gtquery_process_check(train_data, gt_x, gt_y, gt_Y_deg)
 
@@ -100,9 +103,9 @@ def check_process(gt_pose, index, indices_to_remove, train_data, dataset, plot=T
         mask3, iou = functions.generate_interference_mask(gt_x, gt_y, gt_Y, gt_Y_deg, q_x, q_y, q_Y, q_Y_deg)
 
         if plot:
-            imports.plt.imshow(mask3, cmap="gray")
-            imports.plt.legend(loc="lower right")
-            imports.plt.figure()
+            plt.imshow(mask3, cmap="gray")
+            plt.legend(loc="lower right")
+            plt.figure()
 
 def analyze_feature_robustness(train_data, net):
     q_idx = 200
@@ -114,15 +117,15 @@ def analyze_feature_robustness(train_data, net):
     print(out[1].shape, out[1].min(), out[1].max())
     print(out[2].shape, out[2].min(), out[2].max())
     print(out[3].shape, out[3].min(), out[3].max())
-    out[2][0, :, :, :] = out[2][0, :, :, :] + imports.torch.normal(0, 3, size=out[2][:, :, :, :].shape).cuda()
-    out[2][0, :, :, :] = out[2][0, :, :, :] + imports.torch.normal(0, 3, size=out[2][:, :, :, :].shape).cuda()
+    out[2][0, :, :, :] = out[2][0, :, :, :] + torch.normal(0, 3, size=out[2][:, :, :, :].shape).cuda()
+    out[2][0, :, :, :] = out[2][0, :, :, :] + torch.normal(0, 3, size=out[2][:, :, :, :].shape).cuda()
     out[3][0, :, :, :] = 0
-    q_desc = imports.torch.nn.functional.normalize(net.embed(out[-1]).flatten(1), p=2, dim=1)
+    q_desc = torch.nn.functional.normalize(net.embed(out[-1]).flatten(1), p=2, dim=1)
     q_image_r = net.decoder(out)[0]
 
     print(q_image_r[0].min(), q_image_r[0].max())
 
-    f, axarr = imports.plt.subplots(1, 2, figsize=(15, 15))
+    f, axarr = plt.subplots(1, 2, figsize=(15, 15))
     axarr[0].set_title("query image")
     axarr[1].set_title("reco image")
 

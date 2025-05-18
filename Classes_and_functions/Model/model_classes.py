@@ -1,31 +1,35 @@
 # Ghiotto Andrea   2118418
 
-from Classes_and_functions import imports
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import os
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 def save_state(epoch, model, path):
-    imports.os.makedirs(imports.os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
-    imports.torch.save({
+    torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             }, path)
     
 def load_state(model, path):
-    checkpoint = imports.torch.load(path)
+    checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['model_state_dict'])
     epoch = checkpoint['epoch']
     return model
 
-class Mlp(imports.nn.Module):
+class Mlp(nn.Module):
 
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=imports.nn.GELU, drop=0.):
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
-        self.fc1 = imports.nn.Linear(in_features, hidden_features)
+        self.fc1 = nn.Linear(in_features, hidden_features)
         self.act = act_layer()
-        self.fc2 = imports.nn.Linear(hidden_features, out_features)
-        self.drop = imports.nn.Dropout(drop)
+        self.fc2 = nn.Linear(hidden_features, out_features)
+        self.drop = nn.Dropout(drop)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -35,7 +39,7 @@ class Mlp(imports.nn.Module):
         x = self.drop(x)
         return x
 
-class Attention(imports.nn.Module):
+class Attention(nn.Module):
 
     def __init__(self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0., sr_ratio=1):
         super().__init__()
@@ -46,16 +50,16 @@ class Attention(imports.nn.Module):
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
 
-        self.q = imports.nn.Linear(dim, dim, bias=qkv_bias)
-        self.kv = imports.nn.Linear(dim, dim * 2, bias=qkv_bias)
-        self.attn_drop = imports.nn.Dropout(attn_drop)
-        self.proj = imports.nn.Linear(dim, dim)
-        self.proj_drop = imports.nn.Dropout(proj_drop)
+        self.q = nn.Linear(dim, dim, bias=qkv_bias)
+        self.kv = nn.Linear(dim, dim * 2, bias=qkv_bias)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
 
         self.sr_ratio = sr_ratio
         if sr_ratio > 1:
-            self.sr = imports.nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
-            self.norm = imports.nn.LayerNorm(dim)
+            self.sr = nn.Conv2d(dim, dim, kernel_size=sr_ratio, stride=sr_ratio)
+            self.norm = nn.LayerNorm(dim)
 
     def forward(self, x, H, W):
         B, N, C = x.shape
@@ -80,10 +84,10 @@ class Attention(imports.nn.Module):
 
         return x
     
-class Block(imports.nn.Module):
+class Block(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=imports.nn.GELU, norm_layer=imports.nn.LayerNorm, sr_ratio=1):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, sr_ratio=1):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
@@ -91,7 +95,7 @@ class Block(imports.nn.Module):
             num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
             attn_drop=attn_drop, proj_drop=drop, sr_ratio=sr_ratio)
 
-        self.drop_path = imports.DropPath(drop_path) if drop_path > 0. else imports.nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
@@ -102,12 +106,12 @@ class Block(imports.nn.Module):
 
         return x
 
-class PatchEmbed(imports.nn.Module):
+class PatchEmbed(nn.Module):
 
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
         super().__init__()
-        img_size = imports.to_2tuple(img_size)
-        patch_size = imports.to_2tuple(patch_size)
+        img_size = to_2tuple(img_size)
+        patch_size = to_2tuple(patch_size)
 
         self.img_size = img_size
         self.patch_size = patch_size
@@ -115,8 +119,8 @@ class PatchEmbed(imports.nn.Module):
             f"img_size {img_size} should be divided by patch_size {patch_size}."
         self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
         self.num_patches = self.H * self.W
-        self.proj = imports.nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-        self.norm = imports.nn.LayerNorm(embed_dim)
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
+        self.norm = nn.LayerNorm(embed_dim)
 
     def forward(self, x):
         B, C, H, W = x.shape
@@ -127,11 +131,11 @@ class PatchEmbed(imports.nn.Module):
 
         return x, (H, W)
     
-class PyramidVisionTransformer(imports.nn.Module):
+class PyramidVisionTransformer(nn.Module):
 
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
-                 attn_drop_rate=0., drop_path_rate=0., norm_layer=imports.nn.LayerNorm, depths=[3, 4, 6, 3],
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, depths=[3, 4, 6, 3],
                  sr_ratios=[8, 4, 2, 1], num_stages=4, F4=False):
         super().__init__()
         self.num_classes = num_classes
@@ -139,7 +143,7 @@ class PyramidVisionTransformer(imports.nn.Module):
         self.F4 = F4
         self.num_stages = num_stages
 
-        dpr = [x.item() for x in imports.torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
         cur = 0
 
         for i in range(num_stages):
@@ -148,10 +152,10 @@ class PyramidVisionTransformer(imports.nn.Module):
                                      in_chans=in_chans if i == 0 else embed_dims[i - 1],
                                      embed_dim=embed_dims[i])
             num_patches = patch_embed.num_patches if i != num_stages - 1 else patch_embed.num_patches + 1
-            pos_embed = imports.nn.Parameter(imports.torch.zeros(1, num_patches, embed_dims[i]))
-            pos_drop = imports.nn.Dropout(p=drop_rate)
+            pos_embed = nn.Parameter(torch.zeros(1, num_patches, embed_dims[i]))
+            pos_drop = nn.Dropout(p=drop_rate)
 
-            block = imports.nn.ModuleList([Block(
+            block = nn.ModuleList([Block(
                 dim=embed_dims[i], num_heads=num_heads[i], mlp_ratio=mlp_ratios[i], qkv_bias=qkv_bias,
                 qk_scale=qk_scale, drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[cur + j],
                 norm_layer=norm_layer, sr_ratio=sr_ratios[i])
@@ -163,24 +167,24 @@ class PyramidVisionTransformer(imports.nn.Module):
             setattr(self, f"pos_drop{i + 1}", pos_drop)
             setattr(self, f"block{i + 1}", block)
 
-            imports.trunc_normal_(pos_embed, std=.02)
+            trunc_normal_(pos_embed, std=.02)
 
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
-        if isinstance(m, imports.nn.Linear):
-            imports.trunc_normal_(m.weight, std=.02)
-            if isinstance(m, imports.nn.Linear) and m.bias is not None:
-                imports.nn.init.constant_(m.bias, 0)
-        elif isinstance(m, imports.nn.LayerNorm):
-            imports.nn.init.constant_(m.bias, 0)
-            imports.nn.init.constant_(m.weight, 1.0)
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
 
     def _get_pos_embed(self, pos_embed, patch_embed, H, W):
         if H * W == self.patch_embed1.num_patches:
             return pos_embed
         else:
-            return imports.F.interpolate(
+            return F.interpolate(
                 pos_embed.reshape(1, patch_embed.H, patch_embed.W, -1).permute(0, 3, 1, 2),
                 size=(H, W), mode="bilinear").reshape(1, -1, H * W).permute(0, 2, 1)
 
@@ -224,13 +228,13 @@ class PyramidVisionTransformer(imports.nn.Module):
 
         return out_dict
 
-class MLP(imports.nn.Module):
+class MLP(nn.Module):
 
     def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
-        self.proj = imports.nn.Linear(input_dim, embed_dim)
-        self.norm = imports.nn.BatchNorm1d(bn*bn)
-        self.act = imports.nn.LeakyReLU()
+        self.proj = nn.Linear(input_dim, embed_dim)
+        self.norm = nn.BatchNorm1d(bn*bn)
+        self.act = nn.LeakyReLU()
 
     def forward(self, x):
         b, c, h, w = x.shape
@@ -240,28 +244,28 @@ class MLP(imports.nn.Module):
         x = self.act(x)
         return x
 
-class SegFormerHead2(imports.nn.Module):
+class SegFormerHead2(nn.Module):
     def __init__(self, embedding_dim=128, in_channels_head=[32, 64, 128, 256], num_classes=1, img_size=512):
         super().__init__()
         self.img_size = img_size
         c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = in_channels_head
 
-        self.linear_fuse = imports.nn.Sequential(
-            imports.nn.Conv2d(in_channels=embedding_dim*4, out_channels=embedding_dim, kernel_size=1, bias=False),
-            imports.nn.BatchNorm2d(num_features=embedding_dim),
-            imports.nn.ReLU(inplace=True)
+        self.linear_fuse = nn.Sequential(
+            nn.Conv2d(in_channels=embedding_dim*4, out_channels=embedding_dim, kernel_size=1, bias=False),
+            nn.BatchNorm2d(num_features=embedding_dim),
+            nn.ReLU(inplace=True)
         )
 
-        self.linear_pred = imports.nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_1 = imports.nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_2 = imports.nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_3 = imports.nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_4 = imports.nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_1 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_2 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_3 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_4 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
         
-        self.linear_c4 = imports.nn.ConvTranspose2d(c4_in_channels, embedding_dim, kernel_size=32, stride=32)
-        self.linear_c3 = imports.nn.ConvTranspose2d(c3_in_channels, embedding_dim, kernel_size=16, stride=16)
-        self.linear_c2 = imports.nn.ConvTranspose2d(c2_in_channels, embedding_dim, kernel_size=8, stride=8)
-        self.linear_c1 = imports.nn.ConvTranspose2d(c1_in_channels, embedding_dim, kernel_size=4, stride=4)
+        self.linear_c4 = nn.ConvTranspose2d(c4_in_channels, embedding_dim, kernel_size=32, stride=32)
+        self.linear_c3 = nn.ConvTranspose2d(c3_in_channels, embedding_dim, kernel_size=16, stride=16)
+        self.linear_c2 = nn.ConvTranspose2d(c2_in_channels, embedding_dim, kernel_size=8, stride=8)
+        self.linear_c1 = nn.ConvTranspose2d(c1_in_channels, embedding_dim, kernel_size=4, stride=4)
         
 
     def forward(self, inputs):
@@ -272,7 +276,7 @@ class SegFormerHead2(imports.nn.Module):
         _c3 = self.linear_c3(c3)
         _c2 = self.linear_c2(c2)
         _c1 = self.linear_c1(c1)
-        x = self.linear_fuse(imports.torch.cat([_c4, _c3, _c2, _c1], dim=1))
+        x = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
 
         _c4 = self.linear_pred_4(_c4)
         _c3 = self.linear_pred_3(_c3)
@@ -282,7 +286,7 @@ class SegFormerHead2(imports.nn.Module):
 
         return [x , _c1, _c2, _c3, _c4]
     
-class Model(imports.nn.Module):
+class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
@@ -293,7 +297,7 @@ class Model(imports.nn.Module):
         
     def forward(self, x, reco=False):
         out = self.encoder(x)
-        embed= imports.torch.nn.functional.normalize(self.embed(out[-1]).flatten(1), p=2, dim=1)
+        embed= torch.nn.functional.normalize(self.embed(out[-1]).flatten(1), p=2, dim=1)
         
         if reco:
             rec = self.decoder(out)

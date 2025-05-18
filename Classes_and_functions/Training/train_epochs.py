@@ -1,6 +1,9 @@
 # Ghiotto Andrea   2118418
 
-from Classes_and_functions import imports
+import numpy as np
+import torch
+from tqdm import tqdm
+
 from Classes_and_functions. Model import model_classes
 from Classes_and_functions.Training import functions
 
@@ -12,15 +15,15 @@ def train_epochs(writer, train_data, train_dataloader, net, optimizer, scheduler
 
         train_losses = []
 
-        for idx, (image, gtimage, gtpose, _, _, mode) in imports.tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
+        for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             image = drop(image.cuda())
             gtimage = gtimage.cuda()
             mode = mode[:, None].cuda()
             
             embed, rec = net(image, reco=True)
 
-            distmat  = imports.torch.clamp(functions.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
-            embedmat = imports.torch.clamp(functions.calcEmbedMatrix(embed), 0, 1)
+            distmat  = torch.clamp(functions.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
+            embedmat = torch.clamp(functions.calcEmbedMatrix(embed), 0, 1)
 
             distmat, embedmat = mode*distmat, mode*embedmat
             
@@ -36,11 +39,8 @@ def train_epochs(writer, train_data, train_dataloader, net, optimizer, scheduler
             scheduler.step()
             train_losses.append(loss.item())
 
-            imports.torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
 
-        print("train loss mean:", imports.np.array(train_losses).mean())
+        print("train loss mean:", np.array(train_losses).mean())
         
         model_classes.save_state(epoch, net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
-
-
-        # for idx, (image, gtimage, gtpose, _, _, mode) in imports.tqdm(enumerate(val_dataloader), total=len(val_dataloader)):
