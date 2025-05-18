@@ -5,3 +5,4 @@ correct_model_3/
 runs/
 .ipynb_checkpoints/
 *.pickle
+**/__pycache__/
