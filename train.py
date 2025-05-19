@@ -4,8 +4,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from Classes_and_functions. Model import model_classes
-from Classes_and_functions.Training import functions
+import model, metrics
 
 def train_epochs(writer, train_data, train_dataloader, net, optimizer, scheduler, drop, recocriterion, locacriterion):
     for epoch in range(1, 25):
@@ -22,8 +21,8 @@ def train_epochs(writer, train_data, train_dataloader, net, optimizer, scheduler
             
             embed, rec = net(image, reco=True)
 
-            distmat  = torch.clamp(functions.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
-            embedmat = torch.clamp(functions.calcEmbedMatrix(embed), 0, 1)
+            distmat  = torch.clamp(metrics.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
+            embedmat = torch.clamp(metrics.calcEmbedMatrix(embed), 0, 1)
 
             distmat, embedmat = mode*distmat, mode*embedmat
             
@@ -43,4 +42,4 @@ def train_epochs(writer, train_data, train_dataloader, net, optimizer, scheduler
 
         print("train loss mean:", np.array(train_losses).mean())
         
-        model_classes.save_state(epoch, net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
+        model.save_state(epoch, net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")

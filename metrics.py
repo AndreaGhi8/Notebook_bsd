@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from Classes_and_functions.Dataloader import functions
+from utils import visualizer
 
 def calcEmbedMatrix(vectors):
     diff = vectors.unsqueeze(1) - vectors.unsqueeze(0)
@@ -24,7 +24,7 @@ def generate_sonar_map(pose, flag):
     Y_deg = 90 - Y_deg
     Y_deg = 90 - Y_deg
     center = np.array([x, y]).astype(int)
-    mask = functions.sector_mask((325+rad*2, 295+rad*2),center,rad,Y_deg).T
+    mask = visualizer.sector_mask((325+rad*2, 295+rad*2),center,rad,Y_deg).T
     return mask
 
 def sonar_overlap_distance_matrix(gtposes, mode):

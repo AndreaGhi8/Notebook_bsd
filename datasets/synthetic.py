@@ -7,8 +7,8 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 import glob, os, cv2
 
-from Classes_and_functions.Dataloader import load_poses
-from Classes_and_functions.Dataloader import functions
+from datasets import pose as load_poses
+from utils import visualizer as parser
 
 class SonarDescriptorDatasetFull(Dataset):
     def __init__(self, datapath, database4val=None):
@@ -135,7 +135,7 @@ class SonarDescriptorDatasetFull(Dataset):
         _, cand_indx = torch.topk(dist_matrix, 5, dim=-1, largest=False, sorted=True)
         
         candidates = self.poses[:self.synth, 2][cand_indx]
-        candidates = torch.Tensor([functions.parse_pose([0,0,cand])[3] for cand in candidates])
+        candidates = torch.Tensor([parser.parse_pose([0,0,cand])[3] for cand in candidates])
 
         diff_yaw = torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
 

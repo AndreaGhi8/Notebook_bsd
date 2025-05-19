@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 import glob, cv2
 
-from Classes_and_functions.Dataloader import load_poses
+from datasets import pose as load_poses
 
 class SonarDescriptorOnlyRealDataset(Dataset):
     def __init__(self, database4val=None):
