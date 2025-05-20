@@ -85,15 +85,15 @@ def gtquery_process(database, x, y, yaw_deg):
     dist_matrix = torch.cdist(torch.Tensor([x,y]).unsqueeze(0), database.poses[:database.synth, :2].unsqueeze(0)).squeeze()
 
     _, cand_indx = torch.topk(dist_matrix, 5, dim=-1, largest=False, sorted=True)
-    print("dist matrix", dist_matrix[cand_indx])
+    #print("dist matrix", dist_matrix[cand_indx])
 
     candidates = database.poses[:database.synth, 2][cand_indx]
     candidates = torch.Tensor([parse_pose([0,0,cand])[3] for cand in candidates])
-    print("cand", candidates)
-    print("yaw_deg", yaw_deg)
+    #print("cand", candidates)
+    #print("yaw_deg", yaw_deg)
 
     diff_yaw = torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
-    print("diff yaw", diff_yaw)
+    #print("diff yaw", diff_yaw)
 
     min_yaw_idx = torch.argmin(diff_yaw, dim=-1)
 
@@ -233,6 +233,7 @@ def remove_data_at_indices(dataset, indices):
         dataset.poses = np.delete(dataset.poses, indices, axis=0)
 
     dataset.pose_paths = np.delete(dataset.pose_paths, indices, axis=0)
+    dataset.closest_indices = np.delete(dataset.closest_indices, indices)
     dataset.synth = len(dataset.imgs)
 
     return dataset
