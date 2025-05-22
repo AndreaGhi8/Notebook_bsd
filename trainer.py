@@ -24,7 +24,7 @@ class Trainer:
         self.best_loca_error = float("inf")
         self.best_model_path = None
 
-    def train(self, num_epochs=24):
+    def train(self, num_epochs):
         for epoch in range(1, num_epochs + 1):
             print("epoch:", epoch)
             self.train_epoch(epoch)
