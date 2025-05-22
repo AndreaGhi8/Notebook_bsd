@@ -82,8 +82,8 @@ class Trainer:
         q_image_a = q_image_a[None].cuda()
 
         out = self.net.encoder(q_image_a)
-        out[2][0, :, :, :] += torch.normal(0, 3, size=out[2].shape).cuda()
-        out[2][0, :, :, :] += torch.normal(0, 3, size=out[2].shape).cuda()
+        out[2][0, :, :, :] += torch.normal(0, 3, size=out[2][0].shape).cuda()
+        out[2][0, :, :, :] += torch.normal(0, 3, size=out[2][0].shape).cuda()
         out[3][0, :, :, :] = 0
 
         q_desc = torch.nn.functional.normalize(self.net.embed(out[-1]).flatten(1), p=2, dim=1)
