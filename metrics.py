@@ -4,6 +4,9 @@ import math
 import numpy as np
 import torch
 from tqdm import tqdm
+import time
+import csv
+import os
 
 from utils import visualizer
 
@@ -101,3 +104,52 @@ def get_descriptors(train_data, val_data, net):
         
         print("avg_metric_e     :", avg_metric_e)
         print("avg_metric_e_top5:", avg_metric_e_top5)
+
+def count_parameters(model):
+    total_params = sum(p.numel() for p in model.parameters())
+
+    return total_params
+
+def inference_time(net, train_dataloader):
+    net.eval()
+    sample = next(iter(train_dataloader))[0].cuda()
+
+    with torch.no_grad():
+        torch.cuda.synchronize()
+        start_inf = time.time()
+        _ = net(sample)
+        torch.cuda.synchronize()
+        end_inf = time.time()
+
+    inference_time_per_image = (end_inf - start_inf) / sample.size(0)
+    
+    return inference_time_per_image
+
+def save_results(model_name, total_params, training_time, inference_time_per_img, ale_t, aoe_t, ale_r, aoe_r, file_path):
+    file_exists = os.path.isfile(file_path)
+
+    with open(file_path, mode='a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+
+        if not file_exists:
+            writer.writerow([
+                "Model",
+                "Total Parameters",
+                "Training Time (s)",
+                "Inference Time per Image (s)",
+                "Average Localization Error in Test (m)",
+                "Average Orientation Error in Test (°)",
+                "Average Localization Error in Real(m)",
+                "Average Orientation Error in Real (°)"
+            ])
+
+        writer.writerow([
+            model_name,
+            total_params,
+            f"{training_time:.2f}",
+            f"{inference_time_per_img:.6f}",
+            f"{ale_t:.4f}",
+            f"{aoe_t:.4f}",
+            f"{ale_r:.4f}",
+            f"{aoe_r:.4f}"
+        ])
