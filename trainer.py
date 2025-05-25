@@ -5,9 +5,23 @@ import torch
 from tqdm import tqdm
 import pickle
 import gc
+import os
 
-import metrics, states
+import metrics
 from utils import visualizer
+
+def save_state(epoch, model, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            }, path)
+    
+def load_state(model, path):
+    checkpoint = torch.load(path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    return model
 
 class Trainer:
     def __init__(self, writer, train_data, train_dataloader, val_data, net, optimizer, scheduler, drop, recocriterion, locacriterion):
@@ -66,7 +80,7 @@ class Trainer:
             torch.cuda.empty_cache()
 
         print("train loss mean:", np.mean(train_losses))
-        states.save_state(epoch, self.net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
+        save_state(epoch, self.net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
 
     def validate(self, epoch):
         self.net.eval()
