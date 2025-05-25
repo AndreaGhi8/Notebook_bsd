@@ -14,5 +14,4 @@ def save_state(epoch, model, path):
 def load_state(model, path):
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['model_state_dict'])
-    epoch = checkpoint['epoch']
     return model
