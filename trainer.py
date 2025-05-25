@@ -6,7 +6,7 @@ from tqdm import tqdm
 import pickle
 import gc
 
-import model, metrics
+import metrics, states
 from utils import visualizer
 
 class Trainer:
@@ -66,7 +66,7 @@ class Trainer:
             torch.cuda.empty_cache()
 
         print("train loss mean:", np.mean(train_losses))
-        model.save_state(epoch, self.net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
+        states.save_state(epoch, self.net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
 
     def validate(self, epoch):
         self.net.eval()

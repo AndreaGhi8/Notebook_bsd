@@ -6,20 +6,6 @@ import torch.nn.functional as F
 import os
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
-def save_state(epoch, model, path):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            }, path)
-    
-def load_state(model, path):
-    checkpoint = torch.load(path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    epoch = checkpoint['epoch']
-    return model
-
 class Mlp(nn.Module):
 
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
