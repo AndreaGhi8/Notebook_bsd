@@ -126,30 +126,54 @@ def inference_time(net, train_dataloader):
     return inference_time_per_image
 
 def save_results(model_name, total_params, training_time, inference_time_per_img, ale_t, aoe_t, ale_r, aoe_r, file_path):
-    file_exists = os.path.isfile(file_path)
+    
+    header = [
+        "Model",
+        "Total Parameters",
+        "Training Time (s)",
+        "Inference Time per Image (s)",
+        "Average Localization Error in Test (m)",
+        "Average Orientation Error in Test (°)",
+        "Average Localization Error in Real(m)",
+        "Average Orientation Error in Real (°)"
+    ]
 
-    with open(file_path, mode='a', newline='') as csvfile:
+    rows = []
+    if os.path.isfile(file_path):
+        with open(file_path, mode='r', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            rows = list(reader)
+
+    data_rows = []
+    if rows and rows[0] == header:
+        data_rows = rows[1:]
+    elif rows:
+        data_rows = rows
+    else:
+        rows = [header]
+
+    new_row = [
+        model_name,
+        total_params,
+        f"{training_time:.2f}",
+        f"{inference_time_per_img:.6f}",
+        f"{ale_t:.4f}",
+        f"{aoe_t:.4f}",
+        f"{ale_r:.4f}",
+        f"{aoe_r:.4f}"
+    ]
+
+    updated = False
+    for i, row in enumerate(data_rows):
+        if row and row[0] == model_name:
+            data_rows[i] = new_row
+            updated = True
+            break
+
+    if not updated:
+        data_rows.append(new_row)
+
+    with open(file_path, mode='w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-
-        if not file_exists:
-            writer.writerow([
-                "Model",
-                "Total Parameters",
-                "Training Time (s)",
-                "Inference Time per Image (s)",
-                "Average Localization Error in Test (m)",
-                "Average Orientation Error in Test (°)",
-                "Average Localization Error in Real(m)",
-                "Average Orientation Error in Real (°)"
-            ])
-
-        writer.writerow([
-            model_name,
-            total_params,
-            f"{training_time:.2f}",
-            f"{inference_time_per_img:.6f}",
-            f"{ale_t:.4f}",
-            f"{aoe_t:.4f}",
-            f"{ale_r:.4f}",
-            f"{aoe_r:.4f}"
-        ])
+        writer.writerow(header)
+        writer.writerows(data_rows)

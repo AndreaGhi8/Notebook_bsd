@@ -1,0 +1,2 @@
+Model,Total Parameters,Training Time (s),Inference Time per Image (s),Average Localization Error in Test (m),Average Orientation Error in Test (°),Average Localization Error in Real(m),Average Orientation Error in Real (°)
+PVT,20571337,25506.91,0.001807,2.2148,17.1485,5.5749,41.3790
