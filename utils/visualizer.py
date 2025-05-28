@@ -85,15 +85,11 @@ def gtquery_process(database, x, y, yaw_deg):
     dist_matrix = torch.cdist(torch.Tensor([x,y]).unsqueeze(0), database.poses[:database.synth, :2].unsqueeze(0)).squeeze()
 
     _, cand_indx = torch.topk(dist_matrix, 5, dim=-1, largest=False, sorted=True)
-    #print("dist matrix", dist_matrix[cand_indx])
 
     candidates = database.poses[:database.synth, 2][cand_indx]
     candidates = torch.Tensor([parse_pose([0,0,cand])[3] for cand in candidates])
-    #print("cand", candidates)
-    #print("yaw_deg", yaw_deg)
 
     diff_yaw = torch.min(abs(candidates-yaw_deg), abs(360-abs(candidates-yaw_deg)))
-    #print("diff yaw", diff_yaw)
 
     min_yaw_idx = torch.argmin(diff_yaw, dim=-1)
 
@@ -262,6 +258,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
 
     train_data.apply_random_rot = False
     minidx = train_data.query(q_desc)
+    min_img = train_data[minidx][1]
     min_pose = train_data[minidx][2]
     min_x, min_y, min_Y, min_Y_deg = parse_pose(min_pose)
     if plot:
@@ -295,11 +292,11 @@ def process(q_idx, net, train_data, val_data, plot=True):
         
         f, axarr = plt.subplots(1, 3, figsize=(15, 15))
         axarr[0].set_title("query image")
-        axarr[1].set_title("closest image from database")
+        axarr[1].set_title("predicted image")
         axarr[2].set_title("reconstructed query image")
         
         axarr[0].imshow(q_image.detach().cpu().numpy()[0, :, :], cmap='gray')
-        axarr[1].imshow(gt_closest_image[0, :, :], cmap='gray')
+        axarr[1].imshow(min_img[0, :, :], cmap='gray')
         axarr[2].imshow(q_image.detach().cpu().numpy()[0, :, :], cmap='gray')
         
     return loca_error, orie_error
