@@ -3,6 +3,7 @@
 Datasets/
 correct_model_3/
 Best_checkpoints/
+Results/
 runs/
 .ipynb_checkpoints/
 *.pickle
