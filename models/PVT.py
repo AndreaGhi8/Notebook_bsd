@@ -231,6 +231,7 @@ class MLP(nn.Module):
         return x
 
 class SegFormerHead2(nn.Module):
+    
     def __init__(self, embedding_dim=128, in_channels_head=[32, 64, 128, 256], num_classes=1, img_size=512):
         super().__init__()
         self.img_size = img_size
