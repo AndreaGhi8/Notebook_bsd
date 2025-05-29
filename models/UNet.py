@@ -55,7 +55,6 @@ class Up(nn.Module):
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
@@ -89,7 +88,7 @@ class UNet(nn.Module):
         self.up4 = (Up(128, 64, bilinear))
         self.outc = (OutConv(64, n_classes))
 
-    def forward(self, x, reco=False):
+    def forward(self, x):
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
@@ -100,9 +99,7 @@ class UNet(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         logits = self.outc(x)
-        outs = [logits, logits, logits, logits, logits]
-
-        return outs
+        return [x1, x2, x3, x4, logits]
 
     def use_checkpointing(self):
         self.inc = torch.utils.checkpoint(self.inc)
@@ -116,20 +113,35 @@ class UNet(nn.Module):
         self.up4 = torch.utils.checkpoint(self.up4)
         self.outc = torch.utils.checkpoint(self.outc)
 
+class L2Normalize(nn.Module):
+    def __init__(self, dim=1):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, x):
+        return torch.nn.functional.normalize(x, p=2, dim=self.dim)
 
 class Model(nn.Module):
-
-    def __init__(self, embed_dim=128, input_channels=2, output_classes=1, image_size=256):
+    def __init__(self):
         super().__init__()
-        self.unet = UNet(n_channels=input_channels, n_classes=output_classes)
-        self.embed_dim = embed_dim
-        self.image_size = image_size
+        self.encoder = UNet(n_channels=2, n_classes=1)
+        self.embed = nn.Sequential(
+            nn.AdaptiveAvgPool2d((8, 8)),
+            nn.Flatten(),
+            nn.Linear(8*8, 4),
+            L2Normalize(dim=1)
+        )
+        self.decoder = nn.Identity()
 
     def forward(self, x, reco=False):
-        rec = self.unet(x)
-        B = x.shape[0]
-        fake_embed = F.normalize(torch.rand(B, self.embed_dim, device=x.device), dim=1)
+        out = self.encoder(x)
+        features = out[-1]
+        b, c, h, w = features.shape
+        flat = nn.functional.adaptive_avg_pool2d(features, (8, 8)).view(b, -1)
+        embed = torch.nn.functional.normalize(torch.tanh(flat[:, :4]), dim=1)
 
         if reco:
-            return fake_embed, rec
-        return fake_embed
+            rec = features * 5
+            return embed, rec
+
+        return embed
