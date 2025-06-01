@@ -114,6 +114,7 @@ class UNet(nn.Module):
         self.outc = torch.utils.checkpoint(self.outc)
 
 class L2Normalize(nn.Module):
+
     def __init__(self, dim=1):
         super().__init__()
         self.dim = dim
@@ -122,6 +123,7 @@ class L2Normalize(nn.Module):
         return torch.nn.functional.normalize(x, p=2, dim=self.dim)
 
 class Model(nn.Module):
+    
     def __init__(self):
         super().__init__()
         self.encoder = UNet(n_channels=2, n_classes=1)

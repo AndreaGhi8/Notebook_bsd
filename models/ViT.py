@@ -91,6 +91,7 @@ class MLP(nn.Module):
         self.act = nn.LeakyReLU()
 
     def forward(self, x):
+        b, c, h, w = x.shape
         x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
         x = self.proj(x)
@@ -123,6 +124,7 @@ class SegFormerHead2(nn.Module):
     
     def forward(self, inputs):
         c1, c2, c3, c4 = inputs
+        n, _, h, w = c4.shape
 
         _c4 = self.linear_c4(c4)
         _c3 = self.linear_c3(c3)
@@ -219,7 +221,6 @@ class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
-
         self.encoder = ViT(
             image_size=256,
             patch_size=16,
