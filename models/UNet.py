@@ -123,7 +123,7 @@ class L2Normalize(nn.Module):
         return torch.nn.functional.normalize(x, p=2, dim=self.dim)
 
 class Model(nn.Module):
-    
+
     def __init__(self):
         super().__init__()
         self.encoder = UNet(n_channels=2, n_classes=1)
@@ -143,7 +143,7 @@ class Model(nn.Module):
         embed = torch.nn.functional.normalize(torch.tanh(flat[:, :4]), dim=1)
 
         if reco:
-            rec = features * 5
+            rec = [features * 5 for _ in range(5)]
             return embed, rec
 
         return embed
