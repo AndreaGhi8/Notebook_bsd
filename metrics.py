@@ -78,9 +78,11 @@ def computeAverageMetricError(pred_indices, gt_indices, train_data, k=1):
 def get_descriptors(train_data, val_data, net):
     with torch.no_grad():
 
-        emb_size = 256
-        
+        #emb_size = 256
+        sample_descriptor = net(train_data[0][0][None].cuda(), reco=False)[0, :].detach().cpu()
+        emb_size = sample_descriptor.shape[0]
         train_pred_embeds = torch.zeros((train_data.synth, emb_size))
+        
         for idx in tqdm(range(train_data.synth)):
             image, _, _, _, _, _ = train_data[idx]
             image = image[None].cuda()
