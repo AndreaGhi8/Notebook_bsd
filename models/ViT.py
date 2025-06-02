@@ -238,6 +238,9 @@ class Model(nn.Module):
 
     def forward(self, x, reco=False):
         if reco:
+            if x.shape[2] != 256 or x.shape[3] != 256:
+                x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
+
             vit_embed, rec = self.encoder(x, reco=True)
             b = vit_embed.shape[0]
             spatial_dim = int(vit_embed.shape[1] // 256)
@@ -247,7 +250,10 @@ class Model(nn.Module):
             embedded = F.normalize(embedded.flatten(1), p=2, dim=1)
 
             return embedded, rec
-
+        
+        if x.shape[2] != 256 or x.shape[3] != 256:
+                x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
+        
         out = self.encoder(x)
         fake_feat = out[-2]
         embedded = self.embed(fake_feat)
