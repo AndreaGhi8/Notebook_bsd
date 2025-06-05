@@ -246,17 +246,17 @@ class Model(nn.Module):
             spatial_dim = int(vit_embed.shape[1] // 256)
             spatial_size = int(spatial_dim ** 0.5)
             fake_feat = vit_embed.view(b, 256, spatial_size, spatial_size)
-            embedded = self.embed(fake_feat)
-            embedded = F.normalize(embedded.flatten(1), p=2, dim=1)
+            embed = self.embed(fake_feat)
+            embed = F.normalize(embed.flatten(1), p=2, dim=1)
 
-            return embedded, rec
+            return embed, rec
         
         if x.shape[2] != 256 or x.shape[3] != 256:
                 x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         
         out = self.encoder(x)
         fake_feat = out[-2]
-        embedded = self.embed(fake_feat)
-        embedded = F.normalize(embedded.flatten(1), p=2, dim=1)
+        embed = self.embed(fake_feat)
+        embed = F.normalize(embed.flatten(1), p=2, dim=1)
 
-        return embedded
+        return embed
