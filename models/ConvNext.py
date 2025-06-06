@@ -32,7 +32,7 @@ class Block(nn.Module):
         x = input + self.drop_path(x)
         return x
 
-class ConvNeXt(nn.Module):
+class ConvNext(nn.Module):
 
     def __init__(self, in_chans=3, num_classes=1000, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], drop_path_rate=0., 
@@ -177,7 +177,7 @@ class Model(nn.Module):
     def __init__(self):
         super().__init__()
         channels = [32, 64, 128, 256]
-        self.encoder = ConvNeXt(in_chans=2, depths=[2, 2, 2, 2], dims=channels)
+        self.encoder = ConvNext(in_chans=2, depths=[2, 2, 2, 2], dims=channels)
         self.embed = MLP(256, 8)
         self.decoder = WrapDecoder(
             Decoder(in_channels=256, out_channels=1),
