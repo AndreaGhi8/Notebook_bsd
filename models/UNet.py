@@ -68,25 +68,16 @@ class OutConv(nn.Module):
     def forward(self, x):
         return self.conv(x)
 
-class UNet(nn.Module):
+class UNetEncoder(nn.Module):
 
-    def __init__(self, n_channels, n_classes, bilinear=False):
-        super(UNet, self).__init__()
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.bilinear = bilinear
-
-        self.inc = (DoubleConv(n_channels, 64))
-        self.down1 = (Down(64, 128))
-        self.down2 = (Down(128, 256))
-        self.down3 = (Down(256, 512))
+    def __init__(self, n_channels, bilinear=False):
+        super(UNetEncoder, self).__init__()
+        self.inc = DoubleConv(n_channels, 64)
+        self.down1 = Down(64, 128)
+        self.down2 = Down(128, 256)
+        self.down3 = Down(256, 512)
         factor = 2 if bilinear else 1
-        self.down4 = (Down(512, 1024 // factor))
-        self.up1 = (Up(1024, 512 // factor, bilinear))
-        self.up2 = (Up(512, 256 // factor, bilinear))
-        self.up3 = (Up(256, 128 // factor, bilinear))
-        self.up4 = (Up(128, 64, bilinear))
-        self.outc = (OutConv(64, n_classes))
+        self.down4 = Down(512, 1024 // factor)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -94,53 +85,70 @@ class UNet(nn.Module):
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x5 = self.down4(x4)
+        return x1, x2, x3, x4, x5
+
+class UNetDecoder(nn.Module):
+
+    def __init__(self, n_classes, bilinear=False):
+        super(UNetDecoder, self).__init__()
+        factor = 2 if bilinear else 1
+        self.up1 = Up(1024, 512 // factor, bilinear)
+        self.up2 = Up(512, 256 // factor, bilinear)
+        self.up3 = Up(256, 128 // factor, bilinear)
+        self.up4 = Up(128, 64, bilinear)
+        self.outc = OutConv(64, n_classes)
+
+    def forward(self, *args):
+        if len(args) == 1 and isinstance(args[0], (tuple, list)):
+            out = args[0]
+            if len(out) == 5:
+                if out[0].shape[1] == 64:
+                    x1, x2, x3, x4, x5 = out
+                else:
+                    x5, x4, x3, x2, x1 = out
+        else:
+            x5, x4, x3, x2, x1 = args
+
         x = self.up1(x5, x4)
         x = self.up2(x, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         logits = self.outc(x)
-        return [x1, x2, x3, x4, logits]
+        return logits
 
-    def use_checkpointing(self):
-        self.inc = torch.utils.checkpoint(self.inc)
-        self.down1 = torch.utils.checkpoint(self.down1)
-        self.down2 = torch.utils.checkpoint(self.down2)
-        self.down3 = torch.utils.checkpoint(self.down3)
-        self.down4 = torch.utils.checkpoint(self.down4)
-        self.up1 = torch.utils.checkpoint(self.up1)
-        self.up2 = torch.utils.checkpoint(self.up2)
-        self.up3 = torch.utils.checkpoint(self.up3)
-        self.up4 = torch.utils.checkpoint(self.up4)
-        self.outc = torch.utils.checkpoint(self.outc)
+class MLP(nn.Module):
 
-class L2Normalize(nn.Module):
-
-    def __init__(self, dim=1):
+    def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
-        self.dim = dim
+        self.pool_size = bn
+        self.proj = nn.Linear(input_dim, embed_dim)
+        self.norm = nn.BatchNorm1d(bn*bn)
+        self.act = nn.LeakyReLU()
 
     def forward(self, x):
-        return torch.nn.functional.normalize(x, p=2, dim=self.dim)
+        x = nn.functional.adaptive_avg_pool2d(x, (self.pool_size, self.pool_size))
+        x = x.flatten(2).transpose(1, 2)
+        x = self.norm(x)
+        x = self.proj(x)
+        x = self.act(x)
+        return x
 
 class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.encoder = UNet(n_channels=2, n_classes=1)
-        self.embed = nn.Sequential(
-            nn.AdaptiveAvgPool2d((8, 8)),
-            nn.Flatten(),
-            nn.Linear(8*8, 4),
-            L2Normalize(dim=1)
-        )
-        self.decoder = nn.Identity()
+        self.encoder = UNetEncoder(n_channels=2)
+        self.embed = self.embed = MLP(1024, 4)
+        self.decoder = UNetDecoder(n_classes=1, bilinear=False)
 
     def forward(self, x, reco=False):
-        out = self.encoder(x)
-        features = out[-1]
-        b, c, h, w = features.shape
-        flat = nn.functional.adaptive_avg_pool2d(features, (8, 8)).view(b, -1)
-        embed = torch.nn.functional.normalize(torch.tanh(flat[:, :4]), dim=1)
+        x1, x2, x3, x4, x5 = self.encoder(x)
+
+        embed = self.embed(x5)
+        embed = embed.mean(dim=1)
+        embed = torch.nn.functional.normalize(torch.tanh(embed), dim=1)
+
+        features = self.decoder(x5, x4, x3, x2, x1) 
 
         if reco:
             rec = [features * 5 for _ in range(5)]
