@@ -353,6 +353,9 @@ def analyze_feature_robustness(train_data, net):
 
     print(q_image_r[0].min(), q_image_r[0].max())
 
+    if len(q_image_r.shape) == 3 and q_image_r.shape[0] == 1 and q_image_r.shape[1] == 256 and q_image_r.shape[2] == 256:
+        q_image_r = q_image_r.unsqueeze(1)
+
     f, axarr = plt.subplots(1, 2, figsize=(15, 15))
     axarr[0].set_title("query image")
     axarr[1].set_title("reco image")
