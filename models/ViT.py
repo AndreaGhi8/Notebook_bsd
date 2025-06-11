@@ -255,7 +255,7 @@ class Model(nn.Module):
                 x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         
         out = self.encoder(x)
-        fake_feat = out[-2]
+        fake_feat = out[-1]
         embed = self.embed(fake_feat)
         embed = F.normalize(embed.flatten(1), p=2, dim=1)
 
