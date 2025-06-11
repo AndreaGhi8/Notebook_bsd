@@ -146,7 +146,7 @@ class Model(nn.Module):
 
         embed = self.embed(x5)
         embed = embed.mean(dim=1)
-        embed = torch.nn.functional.normalize(torch.tanh(embed), dim=1)
+        embed = torch.nn.functional.normalize(self.embed(x5).flatten(1), p=2, dim=1)
 
         features = self.decoder(x5, x4, x3, x2, x1) 
 
