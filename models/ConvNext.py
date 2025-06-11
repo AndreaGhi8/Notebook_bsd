@@ -185,13 +185,13 @@ class Model(nn.Module):
         )
 
     def forward(self, x, reco=False):
-        features = self.encoder.forward_features(x)
-        feat = features[-1]
+        out = self.encoder.forward_features(x)
+        feat = out[-1]
         embed = self.embed(feat)
         embed = embed.mean(dim=1)
 
         if reco:
-            rec = self.decoder(features)
+            rec = self.decoder(out)
             return embed, rec
 
         return embed
