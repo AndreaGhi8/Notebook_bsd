@@ -189,6 +189,7 @@ class Model(nn.Module):
         feat = out[-1]
         embed = self.embed(feat)
         embed = embed.mean(dim=1)
+        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:
             rec = self.decoder(out)
