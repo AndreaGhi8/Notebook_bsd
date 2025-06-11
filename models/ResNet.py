@@ -1,7 +1,6 @@
 # Ghiotto Andrea   2118418
 
 import torch.nn as nn
-import torch.nn.functional as F
 
 class Bottleneck(nn.Module):
 
@@ -114,13 +113,23 @@ class ResNet(nn.Module):
         out5 = self.layer4(out4)
         return [out2, out3, out4, out5]
 
-class L2Normalize(nn.Module):
+class MLP(nn.Module):
 
-    def __init__(self, dim=1):
+    def __init__(self, input_dim=2048, embed_dim=4):
         super().__init__()
-        self.dim = dim
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.flatten = nn.Flatten()
+        self.linear = nn.Linear(input_dim, embed_dim)
+        self.norm = nn.BatchNorm1d(embed_dim)
+        self.act = nn.LeakyReLU()
+
     def forward(self, x):
-        return F.normalize(x, p=2, dim=self.dim)
+        x = self.pool(x)
+        x = self.flatten(x)
+        x = self.linear(x)
+        x = self.norm(x)
+        x = self.act(x)
+        return x
     
 class WrapDecoder(nn.Module):
 
@@ -146,12 +155,7 @@ class Model(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = ResNet()
-        self.embed = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Linear(2048, 4),
-            L2Normalize(dim=1)
-        )
+        self.embed = MLP(2048, 4)
         self.decoder = WrapDecoder(nn.Sequential(
             nn.ConvTranspose2d(2048, 512, 4, stride=2, padding=1),
             nn.ReLU(),
