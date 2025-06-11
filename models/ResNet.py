@@ -170,8 +170,8 @@ class Model(nn.Module):
         ))
 
     def forward(self, x, reco=False):
-        feats = self.encoder(x)
-        feat = feats[-1]
+        out = self.encoder(x)
+        feat = out[-1]
         emb = self.embed(feat)
 
         if reco:
