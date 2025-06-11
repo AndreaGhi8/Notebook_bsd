@@ -212,8 +212,8 @@ class ViT(nn.Module):
         out = [
             F.interpolate(fake_feat, scale_factor=0.25, mode='bilinear', align_corners=False),
             F.interpolate(fake_feat, scale_factor=0.5, mode='bilinear', align_corners=False),
-            fake_feat,
-            F.interpolate(fake_feat, scale_factor=2.0, mode='bilinear', align_corners=False)
+            F.interpolate(fake_feat, scale_factor=2.0, mode='bilinear', align_corners=False),
+            fake_feat
         ]
         return out
     
@@ -255,8 +255,8 @@ class Model(nn.Module):
                 x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         
         out = self.encoder(x)
-        fake_feat = out[-1]
-        embed = self.embed(fake_feat)
+        feat = out[-1]
+        embed = self.embed(feat)
         embed = F.normalize(embed.flatten(1), p=2, dim=1)
 
         return embed
