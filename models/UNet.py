@@ -89,14 +89,22 @@ class UNetEncoder(nn.Module):
 
 class UNetDecoder(nn.Module):
 
-    def __init__(self, n_classes, bilinear=False):
+    def __init__(self, n_classes, bilinear=False, output_size=(256, 256)):
         super(UNetDecoder, self).__init__()
+        self.output_size = output_size
+
         factor = 2 if bilinear else 1
         self.up1 = Up(1024, 512 // factor, bilinear)
         self.up2 = Up(512, 256 // factor, bilinear)
         self.up3 = Up(256, 128 // factor, bilinear)
         self.up4 = Up(128, 64, bilinear)
+
         self.outc = OutConv(64, n_classes)
+
+        self.pred1 = nn.Conv2d(64, n_classes, kernel_size=1)
+        self.pred2 = nn.Conv2d(128, n_classes, kernel_size=1)
+        self.pred3 = nn.Conv2d(256, n_classes, kernel_size=1)
+        self.pred4 = nn.Conv2d(512, n_classes, kernel_size=1)
 
     def forward(self, *args):
         if len(args) == 1 and isinstance(args[0], (tuple, list)):
@@ -110,11 +118,17 @@ class UNetDecoder(nn.Module):
             x5, x4, x3, x2, x1 = args
 
         x = self.up1(x5, x4)
+        pred4 = nn.functional.interpolate(self.pred4(x), size=self.output_size, mode='bilinear', align_corners=False)
         x = self.up2(x, x3)
+        pred3 = nn.functional.interpolate(self.pred3(x), size=self.output_size, mode='bilinear', align_corners=False)
         x = self.up3(x, x2)
+        pred2 = nn.functional.interpolate(self.pred2(x), size=self.output_size, mode='bilinear', align_corners=False)
         x = self.up4(x, x1)
-        logits = self.outc(x)
-        return logits
+        pred1 = nn.functional.interpolate(self.pred1(x), size=self.output_size, mode='bilinear', align_corners=False)
+        final = self.outc(x)
+        final = nn.functional.interpolate(final, size=self.output_size, mode='bilinear', align_corners=False)
+
+        return [final, pred1, pred2, pred3, pred4]
 
 class MLP(nn.Module):
 
@@ -142,16 +156,14 @@ class Model(nn.Module):
         self.decoder = UNetDecoder(n_classes=1, bilinear=False)
 
     def forward(self, x, reco=False):
-        x1, x2, x3, x4, x5 = self.encoder(x)
-
-        embed = self.embed(x5)
+        out= self.encoder(x)
+        feat = out[-1]
+        embed = self.embed(feat)
         embed = embed.mean(dim=1)
-        embed = torch.nn.functional.normalize(self.embed(x5).flatten(1), p=2, dim=1)
-
-        features = self.decoder(x5, x4, x3, x2, x1) 
+        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:
-            rec = [features * 5 for _ in range(5)]
+            rec = self.decoder(out)
             return embed, rec
 
         return embed
