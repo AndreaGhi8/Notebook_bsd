@@ -127,8 +127,10 @@ class MLP(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, in_channels, out_channels=1):
+    def __init__(self, in_channels, out_channels=1, output_size=(256, 256)):
         super().__init__()
+        self.output_size = output_size
+
         self.up1 = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
         self.bn1 = nn.BatchNorm2d(in_channels // 2)
 
@@ -145,16 +147,24 @@ class Decoder(nn.Module):
         self.bn5 = nn.BatchNorm2d(in_channels // 32)
 
         self.conv_out = nn.Conv2d(in_channels // 32, out_channels, kernel_size=1)
+        self.conv_inter1 = nn.Conv2d(in_channels // 16, out_channels, kernel_size=1)
+        self.conv_inter2 = nn.Conv2d(in_channels // 8, out_channels, kernel_size=1)
+        self.conv_inter3 = nn.Conv2d(in_channels // 4, out_channels, kernel_size=1)
+        self.conv_inter4 = nn.Conv2d(in_channels // 2, out_channels, kernel_size=1)
 
     def forward(self, x):
-        x = F.relu(self.bn1(self.up1(x)))
-        x = F.relu(self.bn2(self.up2(x)))
-        x = F.relu(self.bn3(self.up3(x)))
-        x = F.relu(self.bn4(self.up4(x)))
-        x = F.relu(self.bn5(self.up5(x)))
-        x = self.conv_out(x)
+        x1 = F.relu(self.bn1(self.up1(x)))
+        pred4 = F.interpolate(self.conv_inter4(x1), size=self.output_size, mode='bilinear', align_corners=False)
+        x2 = F.relu(self.bn2(self.up2(x1)))
+        pred3 = F.interpolate(self.conv_inter3(x2), size=self.output_size, mode='bilinear', align_corners=False)
+        x3 = F.relu(self.bn3(self.up3(x2)))
+        pred2 = F.interpolate(self.conv_inter2(x3), size=self.output_size, mode='bilinear', align_corners=False)
+        x4 = F.relu(self.bn4(self.up4(x3)))
+        pred1 = F.interpolate(self.conv_inter1(x4), size=self.output_size, mode='bilinear', align_corners=False)
+        x5 = F.relu(self.bn5(self.up5(x4)))
+        final = F.interpolate(self.conv_out(x5), size=self.output_size, mode='bilinear', align_corners=False)
 
-        return [x, x, x, x, x]
+        return [final, pred1, pred2, pred3, pred4]
     
 class WrapDecoder(nn.Module):
     
