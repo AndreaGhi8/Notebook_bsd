@@ -133,7 +133,7 @@ class Trainer:
         print(f"average orientation error : {avg_orie_error:6.4f} degrees")
 
         if val_loss < self.best_val_loss:
-            self.best_val_lossy = val_loss
+            self.best_val_loss = val_loss
             self.best_model_path = f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth"
 
         del q_desc, q_image_a, q_image_r, out
