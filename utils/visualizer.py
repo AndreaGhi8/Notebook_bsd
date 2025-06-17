@@ -297,7 +297,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
         
         axarr[0].imshow(q_image.detach().cpu().numpy()[0, :, :], cmap='gray')
         axarr[1].imshow(min_img[0, :, :], cmap='gray')
-        axarr[2].imshow(q_image.detach().cpu().numpy()[0, :, :], cmap='gray')
+        axarr[2].imshow(q_image_r.detach().cpu().numpy()[0, 0, :, :], cmap='gray')
         
     return loca_error, orie_error
 
