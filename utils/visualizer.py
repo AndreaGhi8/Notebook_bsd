@@ -242,9 +242,11 @@ def process(q_idx, net, train_data, val_data, plot=True):
     q_image_a, q_image, q_pose, _, _, _ = val_data[q_idx]
     q_image_a = q_image_a[None].cuda()
     if plot:
-        q_desc, (q_image_r, _, _, _, _)  = net(q_image_a, reco=True)
+        #q_desc, (q_image_r, _, _, _, _)  = net(q_image_a, reco=True)
+        q_desc, (q_image_r, _, _, _, _)  = net(q_image_a)
     else:
-        q_desc = net(q_image_a, reco=False)[0, :]
+        #q_desc = net(q_image_a, reco=False)[0, :]
+        q_desc = net(q_image_a)[0, :]
     q_desc = q_desc.detach().cpu().numpy()
     
     q_x, q_y, q_Y, q_Y_deg = parse_pose(q_pose)

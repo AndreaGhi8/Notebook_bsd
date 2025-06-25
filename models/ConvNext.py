@@ -126,56 +126,59 @@ class MLP(nn.Module):
         return x
 
 class Decoder(nn.Module):
-
-    def __init__(self, in_channels, out_channels=1, output_size=(256, 256)):
+    def __init__(self, feature_dims=[32, 64, 128, 256], out_channels=1, output_size=(256, 256)):
         super().__init__()
         self.output_size = output_size
 
-        self.up1 = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-        self.bn1 = nn.BatchNorm2d(in_channels // 2)
+        self.up1 = nn.ConvTranspose2d(feature_dims[3], feature_dims[2], kernel_size=2, stride=2)
+        self.conv1 = nn.Conv2d(feature_dims[2]*2, feature_dims[2], kernel_size=3, padding=1)
+        self.pred4 = nn.Conv2d(feature_dims[2], out_channels, kernel_size=1)
 
-        self.up2 = nn.ConvTranspose2d(in_channels // 2, in_channels // 4, kernel_size=2, stride=2)
-        self.bn2 = nn.BatchNorm2d(in_channels // 4)
+        self.up2 = nn.ConvTranspose2d(feature_dims[2], feature_dims[1], kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(feature_dims[1]*2, feature_dims[1], kernel_size=3, padding=1)
+        self.pred3 = nn.Conv2d(feature_dims[1], out_channels, kernel_size=1)
 
-        self.up3 = nn.ConvTranspose2d(in_channels // 4, in_channels // 8, kernel_size=2, stride=2)
-        self.bn3 = nn.BatchNorm2d(in_channels // 8)
+        self.up3 = nn.ConvTranspose2d(feature_dims[1], feature_dims[0], kernel_size=2, stride=2)
+        self.conv3 = nn.Conv2d(feature_dims[0]*2, feature_dims[0], kernel_size=3, padding=1)
+        self.pred2 = nn.Conv2d(feature_dims[0], out_channels, kernel_size=1)
 
-        self.up4 = nn.ConvTranspose2d(in_channels // 8, in_channels // 16, kernel_size=2, stride=2)
-        self.bn4 = nn.BatchNorm2d(in_channels // 16)
+        self.up4 = nn.ConvTranspose2d(feature_dims[0], feature_dims[0] // 2, kernel_size=2, stride=2)
+        self.conv4 = nn.Conv2d(feature_dims[0] // 2, feature_dims[0] // 2, kernel_size=3, padding=1)
+        self.pred1 = nn.Conv2d(feature_dims[0] // 2, out_channels, kernel_size=1)
 
-        self.up5 = nn.ConvTranspose2d(in_channels // 16, in_channels // 32, kernel_size=2, stride=2)
-        self.bn5 = nn.BatchNorm2d(in_channels // 32)
+        self.out_conv = nn.Conv2d(feature_dims[0] // 2, out_channels, kernel_size=1)
 
-        self.conv_out = nn.Conv2d(in_channels // 32, out_channels, kernel_size=1)
-        self.conv_inter1 = nn.Conv2d(in_channels // 16, out_channels, kernel_size=1)
-        self.conv_inter2 = nn.Conv2d(in_channels // 8, out_channels, kernel_size=1)
-        self.conv_inter3 = nn.Conv2d(in_channels // 4, out_channels, kernel_size=1)
-        self.conv_inter4 = nn.Conv2d(in_channels // 2, out_channels, kernel_size=1)
+    def forward(self, features):
+        f1, f2, f3, f4 = features
 
-    def forward(self, x):
-        x1 = F.relu(self.bn1(self.up1(x)))
-        pred4 = F.interpolate(self.conv_inter4(x1), size=self.output_size, mode='bilinear', align_corners=False)
-        x2 = F.relu(self.bn2(self.up2(x1)))
-        pred3 = F.interpolate(self.conv_inter3(x2), size=self.output_size, mode='bilinear', align_corners=False)
-        x3 = F.relu(self.bn3(self.up3(x2)))
-        pred2 = F.interpolate(self.conv_inter2(x3), size=self.output_size, mode='bilinear', align_corners=False)
-        x4 = F.relu(self.bn4(self.up4(x3)))
-        pred1 = F.interpolate(self.conv_inter1(x4), size=self.output_size, mode='bilinear', align_corners=False)
-        x5 = F.relu(self.bn5(self.up5(x4)))
-        final = F.interpolate(self.conv_out(x5), size=self.output_size, mode='bilinear', align_corners=False)
+        x = self.up1(f4)
+        x = self.conv1(torch.cat([x, f3], dim=1))
+        pred4 = F.interpolate(self.pred4(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        x = self.up2(x)
+        x = self.conv2(torch.cat([x, f2], dim=1))
+        pred3 = F.interpolate(self.pred3(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        x = self.up3(x)
+        x = self.conv3(torch.cat([x, f1], dim=1))
+        pred2 = F.interpolate(self.pred2(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        x = self.up4(x)
+        x = self.conv4(x)
+        pred1 = F.interpolate(self.pred1(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        final = F.interpolate(self.out_conv(x), size=self.output_size, mode='bilinear', align_corners=False)
 
         return [final, pred1, pred2, pred3, pred4]
     
 class WrapDecoder(nn.Module):
-    
+
     def __init__(self, decoder, return_list=False):
         super().__init__()
         self.decoder = decoder
         self.return_list = return_list
 
     def forward(self, x):
-        if isinstance(x, list):
-            x = x[-1]
         x = self.decoder(x)
         if self.return_list:
             return [x]
@@ -190,15 +193,13 @@ class Model(nn.Module):
         self.encoder = ConvNext(in_chans=2, depths=[2, 2, 2, 2], dims=channels)
         self.embed = MLP(256, 8)
         self.decoder = WrapDecoder(
-            Decoder(in_channels=256, out_channels=1),
+            Decoder(feature_dims=channels, out_channels=1),
             return_list=False
         )
 
     def forward(self, x, reco=False):
         out = self.encoder.forward_features(x)
         feat = out[-1]
-        embed = self.embed(feat)
-        embed = embed.mean(dim=1)
         embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:

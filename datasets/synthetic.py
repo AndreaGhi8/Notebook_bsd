@@ -106,7 +106,8 @@ class SonarDescriptorDatasetFull(Dataset):
                 image_ = image_[None] * np.pi
                 sin, cos = torch.sin(image_), torch.cos(image_)
                 image_ = torch.cat([sin, cos]).cuda()[None]
-                descriptor = net(image_, reco=False)[0, :].detach().cpu().numpy()
+                #descriptor = net(image_, reco=False)[0, :].detach().cpu().numpy()
+                descriptor = net(image_)[0, :].detach().cpu().numpy()
                 self.descriptors.append(descriptor)
         print("descriptors computed!")
 
@@ -170,5 +171,7 @@ class SonarDescriptorDatasetFull(Dataset):
 
         image_ = image[None] * np.pi
         sin, cos = torch.sin(image_), torch.cos(image_)
+        tan = torch.tan(image_)
         
-        return torch.cat([sin, cos]), torch.Tensor(image)[None], pose, img_path, self.img_labels[idx] if idx<self.synth else "aaa", 1 if idx<self.synth else 0
+        #return torch.cat([sin, cos]), torch.Tensor(image)[None], pose, img_path, self.img_labels[idx] if idx<self.synth else "aaa", 1 if idx<self.synth else 0
+        return torch.cat([sin, cos, tan]), torch.Tensor(image)[None], pose, img_path, self.img_labels[idx] if idx<self.synth else "aaa", 1 if idx<self.synth else 0

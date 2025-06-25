@@ -1,5 +1,6 @@
 # Ghiotto Andrea   2118418
 
+import torch
 import torch.nn as nn
 
 class Bottleneck(nn.Module):
@@ -74,17 +75,17 @@ class ResNet(nn.Module):
     
     def __init__(self, ResBlock=Bottleneck, layer_list=[3,8,36,3], num_channels=2):
         super().__init__()
-        self.in_channels = 64
+        self.in_channels = 8
         
-        self.conv1 = nn.Conv2d(num_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.batch_norm1 = nn.BatchNorm2d(64)
+        self.conv1 = nn.Conv2d(num_channels, 8, kernel_size=7, stride=2, padding=3, bias=False)
+        self.batch_norm1 = nn.BatchNorm2d(8)
         self.relu = nn.ReLU()
         self.max_pool = nn.MaxPool2d(kernel_size = 3, stride=2, padding=1)
         
-        self.layer1 = self._make_layer(ResBlock, layer_list[0], planes=64)
-        self.layer2 = self._make_layer(ResBlock, layer_list[1], planes=128, stride=2)
-        self.layer3 = self._make_layer(ResBlock, layer_list[2], planes=256, stride=2)
-        self.layer4 = self._make_layer(ResBlock, layer_list[3], planes=512, stride=2)
+        self.layer1 = self._make_layer(ResBlock, layer_list[0], planes=8)
+        self.layer2 = self._make_layer(ResBlock, layer_list[1], planes=16, stride=2)
+        self.layer3 = self._make_layer(ResBlock, layer_list[2], planes=32, stride=2)
+        self.layer4 = self._make_layer(ResBlock, layer_list[3], planes=64, stride=2)
 
     def _make_layer(self, ResBlock, blocks, planes, stride=1):
         ii_downsample = None
@@ -131,53 +132,68 @@ class MLP(nn.Module):
         x = self.act(x)
         return x
     
-class WrapDecoder(nn.Module):
-
-    def __init__(self, decoder_layers, return_list=False):
-        super().__init__()
-        self.decoder = decoder_layers
-        self.return_list = return_list
-
-    def forward(self, x):
-        if isinstance(x, list):
-            x = x[-1]
-        x = self.decoder(x)
-        if x.dim() == 3:
-            x = x.unsqueeze(1)
+class ResNetDecoder(nn.Module):
+    def __init__(self, feature_dims=[256, 512, 1024, 2048], out_channels=1, output_size=(256, 256)):
+        super(ResNetDecoder, self).__init__()
+        self.output_size = output_size
         
-        if self.return_list:
-            return [x]
-        else:
-            return x
+        self.up1 = nn.ConvTranspose2d(feature_dims[3], feature_dims[2], kernel_size=2, stride=2)
+        self.conv1 = nn.Conv2d(feature_dims[2]*2, feature_dims[2], kernel_size=3, padding=1)
+        self.pred4 = nn.Conv2d(feature_dims[2], out_channels, kernel_size=1)
+
+        self.up2 = nn.ConvTranspose2d(feature_dims[2], feature_dims[1], kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(feature_dims[1]*2, feature_dims[1], kernel_size=3, padding=1)
+        self.pred3 = nn.Conv2d(feature_dims[1], out_channels, kernel_size=1)
+
+        self.up3 = nn.ConvTranspose2d(feature_dims[1], feature_dims[0], kernel_size=2, stride=2)
+        self.conv3 = nn.Conv2d(feature_dims[0]*2, feature_dims[0], kernel_size=3, padding=1)
+        self.pred2 = nn.Conv2d(feature_dims[0], out_channels, kernel_size=1)
+
+        self.up4 = nn.ConvTranspose2d(feature_dims[0], feature_dims[0] // 2, kernel_size=2, stride=2)
+        self.conv4 = nn.Conv2d(feature_dims[0] // 2, feature_dims[0] // 2, kernel_size=3, padding=1)
+        self.pred1 = nn.Conv2d(feature_dims[0] // 2, out_channels, kernel_size=1)
+
+        self.out_conv = nn.Conv2d(feature_dims[0] // 2, out_channels, kernel_size=1)
+
+    def forward(self, features):
+        f1, f2, f3, f4 = features
+
+        x = self.up1(f4)
+        x = self.conv1(torch.cat([x, f3], dim=1))
+        pred4 = nn.functional.interpolate(self.pred4(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        x = self.up2(x)
+        x = self.conv2(torch.cat([x, f2], dim=1))
+        pred3 = nn.functional.interpolate(self.pred3(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        x = self.up3(x)
+        x = self.conv3(torch.cat([x, f1], dim=1))
+        pred2 = nn.functional.interpolate(self.pred2(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        x = self.up4(x)
+        x = self.conv4(x)
+        pred1 = nn.functional.interpolate(self.pred1(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        final = nn.functional.interpolate(self.out_conv(x), size=self.output_size, mode='bilinear', align_corners=False)
+
+        return [final, pred1, pred2, pred3, pred4]
+
 
 class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
         self.encoder = ResNet()
-        self.embed = MLP(2048, 4)
-        self.decoder = WrapDecoder(nn.Sequential(
-            nn.ConvTranspose2d(2048, 512, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(512, 256, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 1, 4, stride=2, padding=1),
-            nn.Sigmoid()
-        ))
+        self.embed = MLP(256, 4)
+        self.decoder = ResNetDecoder(feature_dims=[32, 64, 128, 256], out_channels=1, output_size=(256, 256))
 
     def forward(self, x, reco=False):
         out = self.encoder(x)
         feat = out[-1]
-        emb = self.embed(feat)
+        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:
-            rec0 = self.decoder(feat)
-            rec3 = rec0
-            rec4 = rec0
-            return emb, [rec0, None, None, rec3, rec4]
+            rec = self.decoder(out)
+            return embed, rec
 
-        return emb
+        return embed

@@ -256,7 +256,6 @@ class Model(nn.Module):
         
         out = self.encoder(x)
         feat = out[-1]
-        embed = self.embed(feat)
-        embed = F.normalize(embed.flatten(1), p=2, dim=1)
+        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         return embed

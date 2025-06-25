@@ -31,7 +31,7 @@ def load_state(model, path):
     model.load_state_dict(checkpoint['model_state_dict'])
     return model
 
-class Trainer:
+class Trainer18:
     def __init__(self, writer, train_data, train_dataloader, val_data, val_dataloader, net, optimizer, scheduler, drop, recocriterion, locacriterion):
         self.writer = writer
         self.train_data = train_data
@@ -62,7 +62,7 @@ class Trainer:
         for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.train_dataloader), total=len(self.train_dataloader)):
             loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
 
-            self.writer.add_scalar(f"Loss/recotrain_{str(epoch).zfill(2)}", loss_reco.item(), idx)
+            #self.writer.add_scalar(f"Loss/recotrain_{str(epoch).zfill(2)}", loss_reco.item(), idx)
             self.writer.add_scalar(f"Loss/locatrain_{str(epoch).zfill(2)}", loss_loca.item(), idx)
             self.writer.add_scalar(f"Loss/losstrain_{str(epoch).zfill(2)}", loss.item(), idx)
 
@@ -85,7 +85,7 @@ class Trainer:
         for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.val_dataloader), total=len(self.val_dataloader)):
             loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
 
-            self.writer.add_scalar(f"Loss/recoval_{str(epoch).zfill(2)}", loss_reco.item(), idx)
+            #self.writer.add_scalar(f"Loss/recoval_{str(epoch).zfill(2)}", loss_reco.item(), idx)
             self.writer.add_scalar(f"Loss/locaval_{str(epoch).zfill(2)}", loss_loca.item(), idx)
             self.writer.add_scalar(f"Loss/lossval_{str(epoch).zfill(2)}", loss.item(), idx)
 
@@ -133,15 +133,12 @@ class Trainer:
         gtimage = gtimage.cuda()
         mode = mode[:, None].cuda()
 
-        embed, rec = self.net(image, reco=True)
+        embed = self.net(image)
 
         distmat = torch.clamp(metrics.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
         embedmat = torch.clamp(metrics.calcEmbedMatrix(embed), 0, 1)
         distmat, embedmat = mode * distmat, mode * embedmat
-
-        loss_reco = self.recocriterion(rec[0], gtimage) + \
-                    0.125 * self.recocriterion(rec[3], gtimage) + \
-                    0.25 * self.recocriterion(rec[4], gtimage)
+        loss_reco = 0
         loss_loca = self.locacriterion(distmat, embedmat)
         loss = loss_reco + loss_loca
 
