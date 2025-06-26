@@ -188,11 +188,7 @@ class Model(nn.Module):
     def forward(self, x, reco=False):
         out = self.encoder(x)
         feat = out[-1]
-        print(f"Shape ultimo layer: {feat.shape}")
-        e=self.embed(feat)
-        print(f"Shape dopo embed: {e.shape}")
-        embed = torch.nn.functional.normalize(e.flatten(1), p=2, dim=1)
-        print(f"Sahpe descriptor finale: {embed.shape}")
+        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:
             rec = self.decoder(out)
