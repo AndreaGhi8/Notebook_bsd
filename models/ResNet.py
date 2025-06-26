@@ -116,19 +116,17 @@ class ResNet(nn.Module):
 
 class MLP(nn.Module):
 
-    def __init__(self, input_dim=2048, embed_dim=4):
+    def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
-        self.pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.flatten = nn.Flatten()
-        self.linear = nn.Linear(input_dim, embed_dim)
-        self.norm = nn.BatchNorm1d(embed_dim)
+        self.proj = nn.Linear(input_dim, embed_dim)
+        self.norm = nn.BatchNorm1d(bn*bn)
         self.act = nn.LeakyReLU()
 
     def forward(self, x):
-        x = self.pool(x)
-        x = self.flatten(x)
-        x = self.linear(x)
+        b, c, h, w = x.shape
+        x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
+        x = self.proj(x)
         x = self.act(x)
         return x
     
@@ -190,7 +188,11 @@ class Model(nn.Module):
     def forward(self, x, reco=False):
         out = self.encoder(x)
         feat = out[-1]
-        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
+        print(f"Shape ultimo layer: {feat.shape}")
+        e=self.embed(feat)
+        print(f"Shape dopo embed: {e.shape}")
+        embed = torch.nn.functional.normalize(e.flatten(1), p=2, dim=1)
+        print(f"Sahpe descriptor finale: {embed.shape}")
 
         if reco:
             rec = self.decoder(out)
