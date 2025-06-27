@@ -186,9 +186,15 @@ class Model(nn.Module):
         self.decoder = ResNetDecoder(feature_dims=[32, 64, 128, 256], out_channels=1, output_size=(256, 256))
 
     def forward(self, x, reco=False):
+        #print(f"input shape: {x.shape}")
         out = self.encoder(x)
         feat = out[-1]
-        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
+        #print(f"shape feature map dopo encoder: {feat.shape}")
+        emb = self.embed(feat)
+        #print(f"shape output mlp prima normalizzazione: {emb.shape}")
+        embed = torch.nn.functional.normalize(emb.flatten(1), p=2, dim=1)
+        #print(f"shape output mlp dopo normalizzazione: {embed.shape}")
+        #embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:
             rec = self.decoder(out)

@@ -8,18 +8,15 @@ class MLP(nn.Module):
     def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
         self.linear = nn.Linear(input_dim, embed_dim)
-        self.norm = nn.BatchNorm1d(embed_dim)
+        self.norm = nn.BatchNorm1d(bn*bn)
         self.act = nn.LeakyReLU()
 
     def forward(self, x):
         b, c, h, w = x.shape
         x = x.flatten(2).transpose(1, 2)
         x = self.linear(x)
-        x = x.flatten(0, 1)
         x = self.norm(x)
         x = self.act(x)
-        x = x.view(b, -1, x.size(-1))
-        x = x.flatten(1)
         return x
 
 class Model(nn.Module):
@@ -47,4 +44,5 @@ class Model(nn.Module):
         x = self.fc(x)
         #print(f"shape output mlp prima normalizzazione: {x.shape}")
         x = F.normalize(x, p=2, dim=1)
+        #print(f"shape output mlp dopo normalizzazione: {x.shape}")
         return x
