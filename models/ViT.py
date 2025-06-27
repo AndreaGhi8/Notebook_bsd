@@ -82,74 +82,9 @@ class Transformer(nn.Module):
 
         return self.norm(x)
 
-class MLP(nn.Module):
-
-    def __init__(self, input_dim=2048, embed_dim=768, bn=8):
-        super().__init__()
-        self.proj = nn.Linear(input_dim, embed_dim)
-        self.norm = nn.LayerNorm(input_dim)
-        self.act = nn.LeakyReLU()
-
-    def forward(self, x):
-        b, c, h, w = x.shape
-        x = x.flatten(2).transpose(1, 2)
-        x = self.norm(x)
-        x = self.proj(x)
-        x = self.act(x)
-        return x
-
-class SegFormerHead2(nn.Module):
-    
-    def __init__(self, embedding_dim=128, in_channels_head=[32, 64, 128, 256], num_classes=1, img_size=512):
-        super().__init__()
-        self.img_size = img_size
-        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = in_channels_head
-
-        self.linear_fuse = nn.Sequential(
-            nn.Conv2d(in_channels=embedding_dim*4, out_channels=embedding_dim, kernel_size=1, bias=False),
-            nn.BatchNorm2d(num_features=embedding_dim),
-            nn.ReLU(inplace=True)
-        )
-
-        self.linear_pred = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_1 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_2 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_3 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        self.linear_pred_4 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
-        
-        self.linear_c4 = nn.ConvTranspose2d(c4_in_channels, embedding_dim, kernel_size=32, stride=32)
-        self.linear_c3 = nn.ConvTranspose2d(c3_in_channels, embedding_dim, kernel_size=16, stride=16)
-        self.linear_c2 = nn.ConvTranspose2d(c2_in_channels, embedding_dim, kernel_size=8, stride=8)
-        self.linear_c1 = nn.ConvTranspose2d(c1_in_channels, embedding_dim, kernel_size=4, stride=4)
-    
-    def forward(self, inputs):
-        c1, c2, c3, c4 = inputs
-        n, _, h, w = c4.shape
-
-        _c4 = self.linear_c4(c4)
-        _c3 = self.linear_c3(c3)
-        _c2 = self.linear_c2(c2)
-        _c1 = self.linear_c1(c1)
-
-        target_size = _c4.shape[2:]
-
-        _c3 = F.interpolate(_c3, size=target_size, mode='bilinear', align_corners=False)
-        _c2 = F.interpolate(_c2, size=target_size, mode='bilinear', align_corners=False)
-        _c1 = F.interpolate(_c1, size=target_size, mode='bilinear', align_corners=False)
-
-        x = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
-
-        _c4 = self.linear_pred_4(_c4)
-        _c3 = self.linear_pred_3(_c3)
-        _c2 = self.linear_pred_2(_c2)
-        _c1 = self.linear_pred_1(_c1)
-        x   = self.linear_pred(x)
-
-        return [x , _c1, _c2, _c3, _c4]
-
 class ViT(nn.Module):
 
-    def __init__(self, *, image_size=256, patch_size=16, num_classes=1, dim=256, depth=6, heads=8, mlp_dim=1024, pool = 'cls', channels = 2, dim_head = 64, dropout = 0., emb_dropout = 0.):
+    def __init__(self, *, image_size=256, patch_size=32, num_classes=1, dim=256, depth=6, heads=8, mlp_dim=1024, pool = 'cls', channels = 2, dim_head = 64, dropout = 0., emb_dropout = 0.):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
@@ -217,45 +152,89 @@ class ViT(nn.Module):
         ]
         return out
     
+class MLP(nn.Module):
+
+    def __init__(self, input_dim=2048, embed_dim=768, bn=8):
+        super().__init__()
+        self.proj = nn.Linear(input_dim, embed_dim)
+        self.norm = nn.LayerNorm(input_dim)
+        self.act = nn.LeakyReLU()
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+        x = x.flatten(2).transpose(1, 2)
+        x = self.norm(x)
+        x = self.proj(x)
+        x = self.act(x)
+        return x
+
+class SegFormerHead2(nn.Module):
+    
+    def __init__(self, embedding_dim=128, in_channels_head=[32, 64, 128, 256], num_classes=1, img_size=512):
+        super().__init__()
+        self.img_size = img_size
+        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = in_channels_head
+
+        self.linear_fuse = nn.Sequential(
+            nn.Conv2d(in_channels=embedding_dim*4, out_channels=embedding_dim, kernel_size=1, bias=False),
+            nn.BatchNorm2d(num_features=embedding_dim),
+            nn.ReLU(inplace=True)
+        )
+
+        self.linear_pred = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_1 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_2 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_3 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        self.linear_pred_4 = nn.Conv2d(embedding_dim, num_classes, kernel_size=1)
+        
+        self.linear_c4 = nn.ConvTranspose2d(c4_in_channels, embedding_dim, kernel_size=32, stride=32)
+        self.linear_c3 = nn.ConvTranspose2d(c3_in_channels, embedding_dim, kernel_size=16, stride=16)
+        self.linear_c2 = nn.ConvTranspose2d(c2_in_channels, embedding_dim, kernel_size=8, stride=8)
+        self.linear_c1 = nn.ConvTranspose2d(c1_in_channels, embedding_dim, kernel_size=4, stride=4)
+    
+    def forward(self, inputs):
+        c1, c2, c3, c4 = inputs
+        n, _, h, w = c4.shape
+
+        _c4 = self.linear_c4(c4)
+        _c3 = self.linear_c3(c3)
+        _c2 = self.linear_c2(c2)
+        _c1 = self.linear_c1(c1)
+
+        target_size = _c4.shape[2:]
+
+        _c3 = F.interpolate(_c3, size=target_size, mode='bilinear', align_corners=False)
+        _c2 = F.interpolate(_c2, size=target_size, mode='bilinear', align_corners=False)
+        _c1 = F.interpolate(_c1, size=target_size, mode='bilinear', align_corners=False)
+
+        x = self.linear_fuse(torch.cat([_c4, _c3, _c2, _c1], dim=1))
+
+        _c4 = self.linear_pred_4(_c4)
+        _c3 = self.linear_pred_3(_c3)
+        _c2 = self.linear_pred_2(_c2)
+        _c1 = self.linear_pred_1(_c1)
+        x   = self.linear_pred(x)
+
+        return [x , _c1, _c2, _c3, _c4]
+    
 class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.encoder = ViT(
-            image_size=256,
-            patch_size=16,
-            channels=2,
-            dim=256,
-            depth=6,
-            heads=8,
-            mlp_dim=1024,
-            pool='mean',
-            dropout=0.,
-            emb_dropout=0.
-        )
-        self.embed = MLP(input_dim=256, embed_dim=4, bn=16)
+        self.encoder = ViT()
+        self.embed = MLP(256, 4)
         self.decoder = SegFormerHead2(in_channels_head=[256, 256, 256, 256], img_size=256, num_classes=1)
 
     def forward(self, x, reco=False):
-        if reco:
-            if x.shape[2] != 256 or x.shape[3] != 256:
-                x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
-
-            vit_embed, rec = self.encoder(x, reco=True)
-            b = vit_embed.shape[0]
-            spatial_dim = int(vit_embed.shape[1] // 256)
-            spatial_size = int(spatial_dim ** 0.5)
-            fake_feat = vit_embed.view(b, 256, spatial_size, spatial_size)
-            embed = self.embed(fake_feat)
-            embed = F.normalize(embed.flatten(1), p=2, dim=1)
-
-            return embed, rec
-        
         if x.shape[2] != 256 or x.shape[3] != 256:
-                x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
+            x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         
         out = self.encoder(x)
         feat = out[-1]
         embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
+
+        if reco:
+            rec = self.decoder(out)
+            return embed, rec
 
         return embed

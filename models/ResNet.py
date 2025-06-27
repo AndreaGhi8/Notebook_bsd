@@ -1,129 +1,143 @@
-# Ghiotto Andrea   2118418
-
-import torch
 import torch.nn as nn
+import torch
 
-class Bottleneck(nn.Module):
+from torch import Tensor
+from typing import Type
 
-    expansion = 4
+class BasicBlock(nn.Module):
 
-    def __init__(self, in_channels, out_channels, i_downsample=None, stride=1):
-        super(Bottleneck, self).__init__()
-        
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.batch_norm1 = nn.BatchNorm2d(out_channels)
-        
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1)
-        self.batch_norm2 = nn.BatchNorm2d(out_channels)
-        
-        self.conv3 = nn.Conv2d(out_channels, out_channels*self.expansion, kernel_size=1, stride=1, padding=0)
-        self.batch_norm3 = nn.BatchNorm2d(out_channels*self.expansion)
-        
-        self.i_downsample = i_downsample
-        self.stride = stride
-        self.relu = nn.ReLU()
-        
-    def forward(self, x):
-        identity = x.clone()
-        x = self.relu(self.batch_norm1(self.conv1(x)))
-        
-        x = self.relu(self.batch_norm2(self.conv2(x)))
-        
-        x = self.conv3(x)
-        x = self.batch_norm3(x)
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        stride: int = 1,
+        expansion: int = 1,
+        downsample: nn.Module = None
+    ) -> None:
+        super(BasicBlock, self).__init__()
+        self.expansion = expansion
+        self.downsample = downsample
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False
+        )
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(
+            out_channels,
+            out_channels*self.expansion,
+            kernel_size=3,
+            padding=1,
+            bias=False
+        )
+        self.bn2 = nn.BatchNorm2d(out_channels*self.expansion)
 
-        if self.i_downsample is not None:
-            identity = self.i_downsample(identity)
-
-        x+=identity
-        x=self.relu(x)
-        
-        return x
-
-class Block(nn.Module):
-
-    expansion = 1
-
-    def __init__(self, in_channels, out_channels, i_downsample=None, stride=1):
-        super(Block, self).__init__()
-       
-
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=stride, bias=False)
-        self.batch_norm1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, stride=stride, bias=False)
-        self.batch_norm2 = nn.BatchNorm2d(out_channels)
-
-        self.i_downsample = i_downsample
-        self.stride = stride
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-      identity = x.clone()
-
-      x = self.relu(self.batch_norm2(self.conv1(x)))
-      x = self.batch_norm2(self.conv2(x))
-
-      if self.i_downsample is not None:
-          identity = self.i_downsample(identity)
-      print(x.shape)
-      print(identity.shape)
-      x += identity
-      x = self.relu(x)
-      return x
+    def forward(self, x: Tensor) -> Tensor:
+        identity = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        if self.downsample is not None:
+            identity = self.downsample(x)
+        out += identity
+        out = self.relu(out)
+        return out
 
 class ResNet(nn.Module):
-    
-    def __init__(self, ResBlock=Bottleneck, layer_list=[3,8,36,3], num_channels=2):
-        super().__init__()
-        self.in_channels = 8
-        
-        self.conv1 = nn.Conv2d(num_channels, 8, kernel_size=7, stride=2, padding=3, bias=False)
-        self.batch_norm1 = nn.BatchNorm2d(8)
-        self.relu = nn.ReLU()
-        self.max_pool = nn.MaxPool2d(kernel_size = 3, stride=2, padding=1)
-        
-        self.layer1 = self._make_layer(ResBlock, layer_list[0], planes=8)
-        self.layer2 = self._make_layer(ResBlock, layer_list[1], planes=16, stride=2)
-        self.layer3 = self._make_layer(ResBlock, layer_list[2], planes=32, stride=2)
-        self.layer4 = self._make_layer(ResBlock, layer_list[3], planes=64, stride=2)
 
-    def _make_layer(self, ResBlock, blocks, planes, stride=1):
-        ii_downsample = None
-        layers = []
-        
-        if stride != 1 or self.in_channels != planes*ResBlock.expansion:
-            ii_downsample = nn.Sequential(
-                nn.Conv2d(self.in_channels, planes*ResBlock.expansion, kernel_size=1, stride=stride),
-                nn.BatchNorm2d(planes*ResBlock.expansion)
+    def __init__(
+        self,
+        img_channels: int,
+        num_layers: int,
+        block: Type[BasicBlock],
+        num_classes: int = 1000
+    ) -> None:
+        super(ResNet, self).__init__()
+        if num_layers == 18:
+            layers = [2, 2, 2, 2]
+            self.expansion = 1
+        self.in_channels = 64
+        self.conv1 = nn.Conv2d(
+            in_channels=img_channels,
+            out_channels=self.in_channels,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False
+        )
+        self.bn1 = nn.BatchNorm2d(self.in_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512*self.expansion, num_classes)
+
+    def _make_layer(
+        self,
+        block: Type[BasicBlock],
+        out_channels: int,
+        blocks: int,
+        stride: int = 1
+    ) -> nn.Sequential:
+        downsample = None
+        if stride != 1:
+            downsample = nn.Sequential(
+                nn.Conv2d(
+                    self.in_channels,
+                    out_channels*self.expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False
+                ),
+                nn.BatchNorm2d(out_channels * self.expansion),
             )
-            
-        layers.append(ResBlock(self.in_channels, planes, i_downsample=ii_downsample, stride=stride))
-        self.in_channels = planes*ResBlock.expansion
-        
-        for i in range(blocks-1):
-            layers.append(ResBlock(self.in_channels, planes))
-            
+        layers = []
+        layers.append(
+            block(
+                self.in_channels, out_channels, stride, self.expansion, downsample
+            )
+        )
+        self.in_channels = out_channels * self.expansion
+        for i in range(1, blocks):
+            layers.append(block(
+                self.in_channels,
+                out_channels,
+                expansion=self.expansion
+            ))
         return nn.Sequential(*layers)
-
-    def forward(self, x):
-        out0 = self.relu(self.batch_norm1(self.conv1(x)))
-        out1 = self.max_pool(out0)
+    
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        out1 = self.maxpool(x)
         out2 = self.layer1(out1)
         out3 = self.layer2(out2)
         out4 = self.layer3(out3)
         out5 = self.layer4(out4)
-        return [out2, out3, out4, out5]
 
+        return [out2, out3, out4, out5]
+    
 class MLP(nn.Module):
 
     def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
+        self.pool_size = bn
         self.proj = nn.Linear(input_dim, embed_dim)
         self.norm = nn.BatchNorm1d(bn*bn)
         self.act = nn.LeakyReLU()
 
     def forward(self, x):
-        b, c, h, w = x.shape
+        x = nn.functional.adaptive_avg_pool2d(x, (self.pool_size, self.pool_size))
         x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
         x = self.proj(x)
@@ -131,6 +145,7 @@ class MLP(nn.Module):
         return x
     
 class ResNetDecoder(nn.Module):
+    
     def __init__(self, feature_dims=[256, 512, 1024, 2048], out_channels=1, output_size=(256, 256)):
         super(ResNetDecoder, self).__init__()
         self.output_size = output_size
@@ -176,25 +191,18 @@ class ResNetDecoder(nn.Module):
 
         return [final, pred1, pred2, pred3, pred4]
 
-
 class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.encoder = ResNet()
-        self.embed = MLP(256, 4)
-        self.decoder = ResNetDecoder(feature_dims=[32, 64, 128, 256], out_channels=1, output_size=(256, 256))
+        self.encoder = ResNet(img_channels=2, num_layers=18, block=BasicBlock, num_classes=1)
+        self.embed = MLP(512, 4)
+        self.decoder = ResNetDecoder(feature_dims=[64, 128, 256, 512], out_channels=1, output_size=(256, 256))
 
     def forward(self, x, reco=False):
-        #print(f"input shape: {x.shape}")
         out = self.encoder(x)
         feat = out[-1]
-        #print(f"shape feature map dopo encoder: {feat.shape}")
-        emb = self.embed(feat)
-        #print(f"shape output mlp prima normalizzazione: {emb.shape}")
-        embed = torch.nn.functional.normalize(emb.flatten(1), p=2, dim=1)
-        #print(f"shape output mlp dopo normalizzazione: {embed.shape}")
-        #embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
+        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
 
         if reco:
             rec = self.decoder(out)
