@@ -224,17 +224,18 @@ class Model(nn.Module):
         self.encoder = ViT()
         self.embed = MLP(256, 4)
         self.decoder = SegFormerHead2(in_channels_head=[256, 256, 256, 256], img_size=256, num_classes=1)
-
+    
     def forward(self, x, reco=False):
         if x.shape[2] != 256 or x.shape[3] != 256:
             x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         
         out = self.encoder(x)
         feat = out[-1]
-        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
-
+        emb = self.embed(feat)
+        embed = torch.nn.functional.normalize(emb.flatten(1), p=2, dim=1)
+        
         if reco:
             rec = self.decoder(out)
             return embed, rec
-
+            
         return embed

@@ -31,10 +31,32 @@ class Block(nn.Module):
         x = x.permute(0, 3, 1, 2)
         x = input + self.drop_path(x)
         return x
+    
+class LayerNorm(nn.Module):
+
+    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if self.data_format not in ["channels_last", "channels_first"]:
+            raise NotImplementedError 
+        self.normalized_shape = (normalized_shape, )
+    
+    def forward(self, x):
+        if self.data_format == "channels_last":
+            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        elif self.data_format == "channels_first":
+            u = x.mean(1, keepdim=True)
+            s = (x - u).pow(2).mean(1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.eps)
+            x = self.weight[:, None, None] * x + self.bias[:, None, None]
+            return x
 
 class ConvNext(nn.Module):
 
-    def __init__(self, in_chans=3, num_classes=1000, 
+    def __init__(self, in_chans=2, num_classes=1000, 
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], drop_path_rate=0., 
                  layer_scale_init_value=1e-6, head_init_scale=1.,
                  ):
@@ -87,28 +109,6 @@ class ConvNext(nn.Module):
     def forward(self, x):
         return self.forward_features(x)
 
-class LayerNorm(nn.Module):
-
-    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(normalized_shape))
-        self.bias = nn.Parameter(torch.zeros(normalized_shape))
-        self.eps = eps
-        self.data_format = data_format
-        if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError 
-        self.normalized_shape = (normalized_shape, )
-    
-    def forward(self, x):
-        if self.data_format == "channels_last":
-            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        elif self.data_format == "channels_first":
-            u = x.mean(1, keepdim=True)
-            s = (x - u).pow(2).mean(1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.eps)
-            x = self.weight[:, None, None] * x + self.bias[:, None, None]
-            return x
-
 class MLP(nn.Module):
 
     def __init__(self, input_dim=2048, embed_dim=768, bn=8):
@@ -125,7 +125,7 @@ class MLP(nn.Module):
         x = self.act(x)
         return x
 
-class Decoder(nn.Module):
+class ConvNextDecoder(nn.Module):
     def __init__(self, feature_dims=[32, 64, 128, 256], out_channels=1, output_size=(256, 256)):
         super().__init__()
         self.output_size = output_size
@@ -170,20 +170,6 @@ class Decoder(nn.Module):
         final = F.interpolate(self.out_conv(x), size=self.output_size, mode='bilinear', align_corners=False)
 
         return [final, pred1, pred2, pred3, pred4]
-    
-class WrapDecoder(nn.Module):
-
-    def __init__(self, decoder, return_list=False):
-        super().__init__()
-        self.decoder = decoder
-        self.return_list = return_list
-
-    def forward(self, x):
-        x = self.decoder(x)
-        if self.return_list:
-            return [x]
-        else:
-            return x
 
 class Model(nn.Module):
     
@@ -191,19 +177,17 @@ class Model(nn.Module):
         super().__init__()
         channels = [32, 64, 128, 256]
         self.encoder = ConvNext(in_chans=2, depths=[2, 2, 2, 2], dims=channels)
-        self.embed = MLP(256, 8)
-        self.decoder = WrapDecoder(
-            Decoder(feature_dims=channels, out_channels=1),
-            return_list=False
-        )
+        self.embed = MLP(256, 4)
+        self.decoder = ConvNextDecoder(feature_dims=channels)
 
     def forward(self, x, reco=False):
-        out = self.encoder.forward_features(x)
+        out = self.encoder(x)
         feat = out[-1]
-        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
-
+        emb = self.embed(feat)
+        embed = torch.nn.functional.normalize(emb.flatten(1), p=2, dim=1)
+        
         if reco:
             rec = self.decoder(out)
             return embed, rec
-
+            
         return embed

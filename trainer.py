@@ -46,18 +46,22 @@ class Trainer:
         self.locacriterion = locacriterion
         self.best_val_loss = float("inf")
         self.best_model_path = None
+        self.best_val_loca_error = float("inf")
+        self.best_val_orie_error = float("inf")
 
     def train(self, num_epochs):
         for epoch in range(1, num_epochs + 1):
             print("epoch:", epoch)
             self.train_epoch(epoch)
             self.validate(epoch)
-        return self.best_model_path
+        return self.best_model_path, self.best_val_loca_error, self.best_val_orie_error
 
     def train_epoch(self, epoch):
         self.train_data.apply_random_rot = True
         self.net.train()
         train_losses = []
+        train_losses_reco = []
+        train_losses_loca = []
 
         for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.train_dataloader), total=len(self.train_dataloader)):
             loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
@@ -72,15 +76,21 @@ class Trainer:
             self.scheduler.step()
 
             train_losses.append(loss.item())
+            train_losses_reco.append(loss_reco.item())
+            train_losses_loca.append(loss_loca.item())
             torch.cuda.empty_cache()
 
         print("train loss mean:", np.mean(train_losses))
+        print("train loss reco:", np.mean(train_losses_reco))
+        print("train loss loca:", np.mean(train_losses_loca))
         save_state(epoch, self.net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
 
     def validate(self, epoch):
         self.net.eval()
         self.train_data.apply_random_rot = False
         val_losses = []
+        val_losses_reco = []
+        val_losses_loca = []
 
         for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.val_dataloader), total=len(self.val_dataloader)):
             loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
@@ -95,10 +105,14 @@ class Trainer:
             self.scheduler.step()
 
             val_losses.append(loss.item())
+            val_losses_reco.append(loss_reco.item())
+            val_losses_loca.append(loss_loca.item())
             torch.cuda.empty_cache()
 
         val_loss = np.mean(val_losses)
         print("val loss mean:", val_loss)
+        print("val loss reco:", np.mean(val_losses_reco))
+        print("val loss loca:", np.mean(val_losses_loca))
 
         self.train_data.computeDescriptors(self.net)
         self.val_data.computeDescriptors(self.net)
@@ -123,6 +137,8 @@ class Trainer:
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
             self.best_model_path = f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth"
+            self.best_val_loca_error = avg_loca_error
+            self.best_val_orie_error = avg_orie_error
 
         del loca_errors, orie_errors
         torch.cuda.empty_cache()

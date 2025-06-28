@@ -156,9 +156,10 @@ class Model(nn.Module):
         self.decoder = UNetDecoder(n_classes=1, bilinear=False)
 
     def forward(self, x, reco=False):
-        out= self.encoder(x)
+        out = self.encoder(x)
         feat = out[-1]
-        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
+        emb = self.embed(feat)
+        embed = torch.nn.functional.normalize(emb.flatten(1), p=2, dim=1)
 
         if reco:
             rec = self.decoder(out)

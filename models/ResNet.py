@@ -195,17 +195,19 @@ class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
+        channels = [64, 128, 256, 512]
         self.encoder = ResNet(img_channels=2, num_layers=18, block=BasicBlock, num_classes=1)
         self.embed = MLP(512, 4)
-        self.decoder = ResNetDecoder(feature_dims=[64, 128, 256, 512], out_channels=1, output_size=(256, 256))
+        self.decoder = ResNetDecoder(feature_dims=channels, out_channels=1)
 
     def forward(self, x, reco=False):
         out = self.encoder(x)
         feat = out[-1]
-        embed = torch.nn.functional.normalize(self.embed(feat).flatten(1), p=2, dim=1)
-
+        emb = self.embed(feat)
+        embed = torch.nn.functional.normalize(emb.flatten(1), p=2, dim=1)
+        
         if reco:
             rec = self.decoder(out)
             return embed, rec
-
+            
         return embed
