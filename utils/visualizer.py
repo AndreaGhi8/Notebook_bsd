@@ -116,6 +116,40 @@ def gtquery_process_check(database, x, y, yaw_deg):
     
     return closest_index, min_diff_yaw
 
+def filter_train_data(data_to_filter, target_pose=np.array([354.449, -440.277, -4.26713])):
+    poses = []
+    for pose_file in data_to_filter.pose_paths:
+        pose = np.loadtxt(pose_file)[:3]
+        poses.append(pose)
+    poses = np.array(poses)
+
+    keep_poses = []
+    for i in tqdm(range(len(poses)), desc="Filtering poses"):
+        dist = np.linalg.norm(poses[i] - target_pose)
+        if dist >= 5.0:
+            keep_poses.append(i)
+
+    keep_poses = np.array(keep_poses)
+
+    data_to_filter.imgs = data_to_filter.imgs[keep_poses]
+    data_to_filter.pose_paths = data_to_filter.pose_paths[keep_poses]
+    data_to_filter.poses = data_to_filter.poses[keep_poses]
+    data_to_filter.synth = len(data_to_filter.imgs)
+
+    new_poses = []
+    for pose_file in data_to_filter.pose_paths:
+        pose = np.loadtxt(pose_file)[:3]
+        new_poses.append(pose)
+    new_poses = np.array(new_poses)
+
+    closest_indices = []
+    for pose in new_poses:
+        dists = np.linalg.norm(poses[:, :2] - pose[:2], axis=1)
+        closest_idx = np.argmin(dists)
+        closest_indices.append(closest_idx)
+
+    data_to_filter.closest_indices = np.array(closest_indices)
+
 def filter_data(train_data, data_to_filter):
     train_poses = []
     for pose_file in train_data.pose_paths:
@@ -130,7 +164,7 @@ def filter_data(train_data, data_to_filter):
     val_poses = np.array(val_poses)
 
     keep_poses = []
-    for i in tqdm(range(len(val_poses)), desc="Filtering validation poses"):
+    for i in tqdm(range(len(val_poses)), desc="Filtering poses"):
         dists = np.linalg.norm(train_poses - val_poses[i], axis=1)
         if np.min(dists) <= 0.5:
             keep_poses.append(i)
