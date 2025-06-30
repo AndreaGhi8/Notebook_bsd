@@ -116,9 +116,9 @@ def gtquery_process_check(database, x, y, yaw_deg):
     
     return closest_index, min_diff_yaw
 
-def filter_train_data(data_to_filter, target_pose=np.array([354.449, -440.277, -4.26713])):
+def filter_train_data(train_data, target_pose=np.array([354.449, -440.277, -4.26713])):
     poses = []
-    for pose_file in data_to_filter.pose_paths:
+    for pose_file in train_data.pose_paths:
         pose = np.loadtxt(pose_file)[:3]
         poses.append(pose)
     poses = np.array(poses)
@@ -131,13 +131,13 @@ def filter_train_data(data_to_filter, target_pose=np.array([354.449, -440.277, -
 
     keep_poses = np.array(keep_poses)
 
-    data_to_filter.imgs = data_to_filter.imgs[keep_poses]
-    data_to_filter.pose_paths = data_to_filter.pose_paths[keep_poses]
-    data_to_filter.poses = data_to_filter.poses[keep_poses]
-    data_to_filter.synth = len(data_to_filter.imgs)
+    train_data.imgs = train_data.imgs[keep_poses]
+    train_data.pose_paths = train_data.pose_paths[keep_poses]
+    train_data.poses = train_data.poses[keep_poses]
+    train_data.synth = len(train_data.imgs)
 
     new_poses = []
-    for pose_file in data_to_filter.pose_paths:
+    for pose_file in train_data.pose_paths:
         pose = np.loadtxt(pose_file)[:3]
         new_poses.append(pose)
     new_poses = np.array(new_poses)
@@ -148,7 +148,7 @@ def filter_train_data(data_to_filter, target_pose=np.array([354.449, -440.277, -
         closest_idx = np.argmin(dists)
         closest_indices.append(closest_idx)
 
-    data_to_filter.closest_indices = np.array(closest_indices)
+    train_data.closest_indices = np.array(closest_indices)
 
 def filter_data(train_data, data_to_filter):
     train_poses = []
