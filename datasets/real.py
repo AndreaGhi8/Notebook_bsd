@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 import glob, cv2
+from natsort import natsorted
 
 from datasets import pose as load_poses
 
@@ -13,8 +14,8 @@ class SonarDescriptorRealDataset(Dataset):
         self.img_source = glob.glob("Datasets/placerec_trieste_updated/imgs/*")
         self.img_labels = glob.glob("Datasets/placerec_trieste_updated/pose/*")
 
-        self.img_source.sort()
-        self.img_labels.sort()
+        self.img_source = natsorted(glob.glob("Datasets/placerec_trieste_updated/imgs/*"))
+        self.img_labels = natsorted(glob.glob("Datasets/placerec_trieste_updated/pose/*"))
         self.img_source = np.array(self.img_source)
         self.img_labels = np.array(self.img_labels)
 

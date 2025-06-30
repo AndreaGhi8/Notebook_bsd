@@ -35,7 +35,9 @@ def plot_real_poses(rd, color="pink"):
     plt.scatter(rd.poses[:, 0], rd.poses[:, 1], c=color, marker='o', linestyle='None', s =1)
     for i in range(0, rd.poses.shape[0], 5):
         q_x, q_y, q_Y_deg = rd.poses[i, :]
-        scatter_real_orientation(q_x, q_y, (q_Y_deg*np.pi/180) % np.pi, "mediumturquoise")
+        q_Y = (q_Y_deg+90)*np.pi/180
+        q_Y %= 2*np.pi
+        scatter_real_orientation(q_x, q_y, q_Y, "mediumturquoise")
 
 def plot_train_data(data):
     plt.scatter(data.poses[:, 0], data.poses[:, 1], c="pink", marker='o', linestyle='None', s =1)
