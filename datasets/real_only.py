@@ -36,8 +36,8 @@ class SonarDescriptorOnlyRealDataset(Dataset):
             lab_path = self.pose_paths[i]
             self.poses[i] = load_poses.Pose(lab_path)()
 
-        self.pad = nn.ZeroPad2d((0, 0, 28, 28))
-        self.img_size = (256, 200)
+        self.pad = nn.ZeroPad2d((0, 0, 18, 18))
+        self.img_size = (256, 220)
         self.min_dx, self.min_dy = 335, -458
         self.poses[:, 0]-=self.min_dx
         self.poses[:, 1]-=self.min_dy
