@@ -159,6 +159,6 @@ class Trainer:
                     0.125 * self.recocriterion(rec[3], gtimage) + \
                     0.25 * self.recocriterion(rec[4], gtimage)
         loss_loca = self.locacriterion(distmat, embedmat)
-        loss = loss_reco + 10*loss_loca
+        loss = loss_reco + 10 * loss_loca
 
         return loss, loss_reco, loss_loca
