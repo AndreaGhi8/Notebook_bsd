@@ -1,5 +1,5 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 
 from torch import Tensor
 from typing import Type
@@ -131,13 +131,12 @@ class MLP(nn.Module):
 
     def __init__(self, input_dim=2048, embed_dim=768, bn=8):
         super().__init__()
-        self.pool_size = bn
         self.proj = nn.Linear(input_dim, embed_dim)
         self.norm = nn.BatchNorm1d(bn*bn)
         self.act = nn.LeakyReLU()
 
     def forward(self, x):
-        x = nn.functional.adaptive_avg_pool2d(x, (self.pool_size, self.pool_size))
+        b, c, h, w = x.shape
         x = x.flatten(2).transpose(1, 2)
         x = self.norm(x)
         x = self.proj(x)

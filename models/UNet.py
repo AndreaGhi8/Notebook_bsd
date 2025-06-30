@@ -86,6 +86,22 @@ class UNetEncoder(nn.Module):
         x4 = self.down3(x3)
         x5 = self.down4(x4)
         return x1, x2, x3, x4, x5
+    
+class MLP(nn.Module):
+
+    def __init__(self, input_dim=2048, embed_dim=768, bn=8):
+        super().__init__()
+        self.proj = nn.Linear(input_dim, embed_dim)
+        self.norm = nn.BatchNorm1d(bn*bn)
+        self.act = nn.LeakyReLU()
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+        x = x.flatten(2).transpose(1, 2)
+        x = self.norm(x)
+        x = self.proj(x)
+        x = self.act(x)
+        return x
 
 class UNetDecoder(nn.Module):
 
@@ -129,23 +145,6 @@ class UNetDecoder(nn.Module):
         final = nn.functional.interpolate(final, size=self.output_size, mode='bilinear', align_corners=False)
 
         return [final, pred1, pred2, pred3, pred4]
-
-class MLP(nn.Module):
-
-    def __init__(self, input_dim=2048, embed_dim=768, bn=8):
-        super().__init__()
-        self.pool_size = bn
-        self.proj = nn.Linear(input_dim, embed_dim)
-        self.norm = nn.BatchNorm1d(bn*bn)
-        self.act = nn.LeakyReLU()
-
-    def forward(self, x):
-        x = nn.functional.adaptive_avg_pool2d(x, (self.pool_size, self.pool_size))
-        x = x.flatten(2).transpose(1, 2)
-        x = self.norm(x)
-        x = self.proj(x)
-        x = self.act(x)
-        return x
 
 class Model(nn.Module):
 
