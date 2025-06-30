@@ -127,13 +127,23 @@ def inference_time(net, train_dataloader):
     
     return inference_time_per_image
 
-def save_results(model_name, total_params, training_time, inference_time_per_img, ale_t, aoe_t, ale_r, aoe_r, file_path):
+def inference_memory(net, input_tensor):
+    net.eval()
+    with torch.no_grad():
+        torch.cuda.reset_peak_memory_stats()
+        _ = net(input_tensor)
+        peak_mem = torch.cuda.max_memory_allocated() / 1024**2
+
+    return peak_mem
+
+def save_results(model_name, total_params, training_time, inference_time_per_img, inference_memory_per_batch, ale_t, aoe_t, ale_r, aoe_r, file_path):
     
     header = [
         "Model",
         "Total Parameters",
         "Training Time (s)",
         "Inference Time per Image (s)",
+        "Inference Memory per Batch (MB)",
         "Average Localization Error in Test (m)",
         "Average Orientation Error in Test (°)",
         "Average Localization Error in Real(m)",
@@ -159,6 +169,7 @@ def save_results(model_name, total_params, training_time, inference_time_per_img
         total_params,
         f"{training_time:.2f}",
         f"{inference_time_per_img:.6f}",
+        f"{inference_memory_per_batch:.2f}",
         f"{ale_t:.4f}",
         f"{aoe_t:.4f}",
         f"{ale_r:.4f}",
