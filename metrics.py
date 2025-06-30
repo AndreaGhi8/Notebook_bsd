@@ -167,9 +167,9 @@ def save_results(model_name, total_params, training_time, inference_time_per_img
     new_row = [
         model_name,
         total_params,
-        f"{training_time:.2f}",
-        f"{inference_time_per_img:.6f}",
-        f"{inference_memory_per_batch:.2f}",
+        f"{training_time:.4f}",
+        f"{inference_time_per_img:.4f}",
+        f"{inference_memory_per_batch:.4f}",
         f"{ale_t:.4f}",
         f"{aoe_t:.4f}",
         f"{ale_r:.4f}",
