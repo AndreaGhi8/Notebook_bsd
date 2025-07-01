@@ -151,7 +151,7 @@ class Model(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = UNetEncoder(n_channels=2)
-        self.embed = self.embed = MLP(1024, 4)
+        self.embed = self.embed = MLP(1024, 4, 16)
         self.decoder = UNetDecoder(n_classes=1, bilinear=False)
 
     def forward(self, x, reco=False):
