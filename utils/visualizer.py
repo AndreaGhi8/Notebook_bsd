@@ -283,7 +283,7 @@ def process(q_idx, net, train_data, val_data, plot=True):
     
     q_x, q_y, q_Y, q_Y_deg = parse_pose(q_pose)
     if plot:
-        plotter.scatter_point(q_x, q_y, 'magenta', label="val pose (query)")
+        plotter.scatter_point(q_x, q_y, 'magenta', label="query pose")
         plotter.scatter_orientation(q_x, q_y, q_Y, "magenta")
 
     if plot:
