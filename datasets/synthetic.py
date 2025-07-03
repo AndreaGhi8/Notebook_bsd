@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import glob, os, cv2
+from natsort import natsorted
 
 from datasets import pose as load_poses
 from utils import visualizer as parser
@@ -20,6 +21,7 @@ class SonarDescriptorDatasetFull(Dataset):
         self.img_labels = np.array(self.img_labels)
         
         self.training = database4val is None
+        self.tags = []
 
         if self.training:
             self.idxs = np.arange(0, len(self.img_source), 1, dtype=int)
@@ -39,20 +41,23 @@ class SonarDescriptorDatasetFull(Dataset):
             self.img_labels = self.img_labels[self.valid_idxs]
 
         if self.training:     # REMOVE "False and" WHEN NEED TO TRAIN ALSO REAL
-            idxs = np.arange(0, 1700, 1, dtype=int)
+            idxs = np.arange(0, 1500, 1, dtype=int)
             np.random.shuffle(idxs)
-            idxs = idxs[:1700]
+            idxs = idxs[:1500]
             
             self.realimg_source = glob.glob("Datasets/placerec_trieste_updated/imgs/*")
-            self.realimg_source.sort()
+            self.realimg_source = natsorted(glob.glob("Datasets/placerec_trieste_updated/imgs/*"))
             self.realimg_source = np.array(self.realimg_source)[idxs]
 
             self.realimg_labels = glob.glob("Datasets/placerec_trieste_updated/pose/*")
-            self.realimg_labels.sort()
+            self.realimg_labels = natsorted(glob.glob("Datasets/placerec_trieste_updated/pose/*"))
             self.realimg_labels = np.array(self.realimg_labels)[idxs]
             
             self.imgs       = np.concatenate((self.img_source, self.realimg_source))
             self.pose_paths = np.concatenate((self.img_labels, self.realimg_labels))
+
+            for i in range(len(self.realimg_source)):
+                self.tags.append(f"real")
             
             self.descriptors=[]
             
@@ -159,6 +164,10 @@ class SonarDescriptorDatasetFull(Dataset):
     def __getitem__(self, idx):
         img_path = self.imgs[idx]
         image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
+        
+        real_idx = self.synth - idx
+        if real_idx < len(self.tags):
+            image = cv2.flip(image, 0)
        
         pose = np.copy(self.poses[idx])
         
@@ -170,5 +179,13 @@ class SonarDescriptorDatasetFull(Dataset):
 
         image_ = image[None] * np.pi
         sin, cos = torch.sin(image_), torch.cos(image_)
+
+        label = self.img_labels[idx]
+        if real_idx < len(self.tags):
+            label = "aaa"
         
-        return torch.cat([sin, cos]), torch.Tensor(image)[None], pose, img_path, self.img_labels[idx] if idx<self.synth else "aaa", 1 if idx<self.synth else 0
+        mode = 1
+        if real_idx < len(self.tags):
+            mode = 0
+        
+        return torch.cat([sin, cos]), torch.Tensor(image)[None], pose, img_path, label, mode
