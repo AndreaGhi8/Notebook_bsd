@@ -12,7 +12,7 @@ def start_plot(train_data, sonar_radius=50, figsize = (15,10)):
     ax.set_ylim([0, train_data.poses[:, 1].max()+sonar_radius])
 
 def plot_synth_poses_train(td, color="blue"):
-    plt.scatter(td.poses[:td.synth, 0], td.poses[:td.synth, 1], c=color, marker='o', linestyle='None', s =1)
+    plt.scatter(td.poses[:, 0], td.poses[:, 1], c=color, marker='o', linestyle='None', s=1)
 
 def plot_synth_poses_val(vd, color="red"):
     plt.scatter(vd.poses[:, 0], vd.poses[:, 1], c=color, marker='o', linestyle='None', s = 1)

@@ -38,7 +38,7 @@ class SonarDescriptorDatasetFull(Dataset):
             self.img_source = self.img_source[self.valid_idxs]
             self.img_labels = self.img_labels[self.valid_idxs]
 
-        if False and self.training:     # REMOVE "False and" WHEN NEED TO TRAIN ALSO REAL
+        if self.training:     # REMOVE "False and" WHEN NEED TO TRAIN ALSO REAL
             idxs = np.arange(0, 1700, 1, dtype=int)
             np.random.shuffle(idxs)
             idxs = idxs[:1700]
@@ -118,7 +118,7 @@ class SonarDescriptorDatasetFull(Dataset):
 
     def gtquery_synth(self, synthpose):
         x,y,yaw_deg = synthpose
-        # yaw_deg = (90 + yaw_deg) % 360        # REMOVE THE # AND CHECK WHEN NEED TO TRAIN ALSO REAL
+        # yaw_deg = (90 + yaw_deg) % 360
         #print("synthpose:", x, y, yaw_deg)
         return self.gtquery(x, y, yaw_deg)
     

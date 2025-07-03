@@ -1,2 +1,6 @@
 Model,Total Parameters,Training Time (s),Inference Time per Image (s),Inference Memory per Batch (MB),Average Localization Error in Test (m),Average Orientation Error in Test (°),Average Localization Error in Real(m),Average Orientation Error in Real (°)
 PVT,20571337,31100.5077,0.0018,382.5088,4.4879,36.3354,0.9619,10.6880
+UNet,31042633,35464.4644,0.0052,1658.7476,2.7642,25.1330,4.7363,50.6642
+ResNet,13431370,15953.8597,0.0011,394.6426,3.3718,28.1993,5.1338,52.9801
+ConvNext,2445233,16117.9799,0.0010,140.3022,2.6736,22.1869,0.7733,9.8770
+ViT,118920074,39196.5722,0.0006,1090.4126,6.4884,56.6336,5.3460,54.6397
