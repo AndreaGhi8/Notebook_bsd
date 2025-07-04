@@ -92,22 +92,18 @@ class Trainer:
         val_losses_reco = []
         val_losses_loca = []
 
-        for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.val_dataloader), total=len(self.val_dataloader)):
-            loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
+        with torch.no_grad():
+            for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.val_dataloader), total=len(self.val_dataloader)):
+                loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
 
-            self.writer.add_scalar(f"Loss/recoval_{str(epoch).zfill(2)}", loss_reco.item(), idx)
-            self.writer.add_scalar(f"Loss/locaval_{str(epoch).zfill(2)}", loss_loca.item(), idx)
-            self.writer.add_scalar(f"Loss/lossval_{str(epoch).zfill(2)}", loss.item(), idx)
+                self.writer.add_scalar(f"Loss/recoval_{str(epoch).zfill(2)}", loss_reco.item(), idx)
+                self.writer.add_scalar(f"Loss/locaval_{str(epoch).zfill(2)}", loss_loca.item(), idx)
+                self.writer.add_scalar(f"Loss/lossval_{str(epoch).zfill(2)}", loss.item(), idx)
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            self.scheduler.step()
-
-            val_losses.append(loss.item())
-            val_losses_reco.append(loss_reco.item())
-            val_losses_loca.append(loss_loca.item())
-            torch.cuda.empty_cache()
+                val_losses.append(loss.item())
+                val_losses_reco.append(loss_reco.item())
+                val_losses_loca.append(loss_loca.item())
+                torch.cuda.empty_cache()
 
         val_loss = np.mean(val_losses)
         print("val loss mean:", val_loss)
@@ -116,9 +112,6 @@ class Trainer:
 
         self.train_data.computeDescriptors(self.net)
         self.val_data.computeDescriptors(self.net)
-
-        with open("train_data.pickle", "wb") as handle:
-            pickle.dump(self.train_data, handle)
 
         loca_errors, orie_errors = [], []
 
