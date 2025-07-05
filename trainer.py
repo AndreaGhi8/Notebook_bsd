@@ -32,39 +32,48 @@ def load_state(model, path):
     return model
 
 class Trainer:
-    def __init__(self, writer, train_data, train_dataloader, val_data, val_dataloader, net, optimizer, scheduler, drop, recocriterion, locacriterion):
+    def __init__(self, writer, train_data, train_dataloader, val_data, net, optimizer, scheduler, drop, recocriterion, locacriterion):
         self.writer = writer
         self.train_data = train_data
         self.train_dataloader = train_dataloader
         self.val_data = val_data
-        self.val_dataloader = val_dataloader
         self.net = net
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.drop = drop
         self.recocriterion = recocriterion
         self.locacriterion = locacriterion
-        self.best_val_loss = float("inf")
+        self.best_loca_error = float("inf")
         self.best_model_path = None
-        self.best_val_loca_error = float("inf")
-        self.best_val_orie_error = float("inf")
 
     def train(self, num_epochs):
         for epoch in range(1, num_epochs + 1):
             print("epoch:", epoch)
             self.train_epoch(epoch)
             self.validate(epoch)
-        return self.best_model_path, self.best_val_loca_error, self.best_val_orie_error
+        return self.best_model_path
 
     def train_epoch(self, epoch):
         self.train_data.apply_random_rot = True
         self.net.train()
         train_losses = []
-        train_losses_reco = []
-        train_losses_loca = []
 
         for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.train_dataloader), total=len(self.train_dataloader)):
-            loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
+            image = self.drop(image.cuda())
+            gtimage = gtimage.cuda()
+            mode = mode[:, None].cuda()
+
+            embed, rec = self.net(image, reco=True)
+
+            distmat = torch.clamp(metrics.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
+            embedmat = torch.clamp(metrics.calcEmbedMatrix(embed), 0, 1)
+            distmat, embedmat = mode * distmat, mode * embedmat
+
+            loss_reco = self.recocriterion(rec[0], gtimage) + \
+                        0.125 * self.recocriterion(rec[3], gtimage) + \
+                        0.25 * self.recocriterion(rec[4], gtimage)
+            loss_loca = self.locacriterion(distmat, embedmat)
+            loss = loss_reco + 10* loss_loca
 
             self.writer.add_scalar(f"Loss/recotrain_{str(epoch).zfill(2)}", loss_reco.item(), idx)
             self.writer.add_scalar(f"Loss/locatrain_{str(epoch).zfill(2)}", loss_loca.item(), idx)
@@ -74,44 +83,21 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             self.scheduler.step()
-
             train_losses.append(loss.item())
-            train_losses_reco.append(loss_reco.item())
-            train_losses_loca.append(loss_loca.item())
+
             torch.cuda.empty_cache()
 
         print("train loss mean:", np.mean(train_losses))
-        print("train loss reco:", np.mean(train_losses_reco))
-        print("train loss loca:", np.mean(train_losses_loca))
         save_state(epoch, self.net, f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth")
 
     def validate(self, epoch):
         self.net.eval()
         self.train_data.apply_random_rot = False
-        val_losses = []
-        val_losses_reco = []
-        val_losses_loca = []
-
-        with torch.no_grad():
-            for idx, (image, gtimage, gtpose, _, _, mode) in tqdm(enumerate(self.val_dataloader), total=len(self.val_dataloader)):
-                loss, loss_reco, loss_loca = self.compute_loss(image, gtimage, gtpose, mode)
-
-                self.writer.add_scalar(f"Loss/recoval_{str(epoch).zfill(2)}", loss_reco.item(), idx)
-                self.writer.add_scalar(f"Loss/locaval_{str(epoch).zfill(2)}", loss_loca.item(), idx)
-                self.writer.add_scalar(f"Loss/lossval_{str(epoch).zfill(2)}", loss.item(), idx)
-
-                val_losses.append(loss.item())
-                val_losses_reco.append(loss_reco.item())
-                val_losses_loca.append(loss_loca.item())
-                torch.cuda.empty_cache()
-
-        val_loss = np.mean(val_losses)
-        print("val loss mean:", val_loss)
-        print("val loss reco:", np.mean(val_losses_reco))
-        print("val loss loca:", np.mean(val_losses_loca))
-
         self.train_data.computeDescriptors(self.net)
         self.val_data.computeDescriptors(self.net)
+
+        with open("train_data.pickle", "wb") as handle:
+            pickle.dump(self.train_data, handle)
 
         loca_errors, orie_errors = [], []
 
@@ -127,31 +113,10 @@ class Trainer:
         print(f"average localization error: {avg_loca_error:6.4f} meters")
         print(f"average orientation error : {avg_orie_error:6.4f} degrees")
 
-        if val_loss < self.best_val_loss:
-            self.best_val_loss = val_loss
+        if avg_loca_error < self.best_loca_error:
+            self.best_loca_error = avg_loca_error
             self.best_model_path = f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth"
-            self.best_val_loca_error = avg_loca_error
-            self.best_val_orie_error = avg_orie_error
 
         del loca_errors, orie_errors
         torch.cuda.empty_cache()
         gc.collect()
-    
-    def compute_loss(self, image, gtimage, gtpose, mode):
-        image = image.cuda()
-        gtimage = gtimage.cuda()
-        mode = mode[:, None].cuda()
-
-        embed, rec = self.net(image, reco=True)
-
-        distmat = torch.clamp(metrics.sonar_overlap_distance_matrix(gtpose, mode), 1e-4, 1).cuda()
-        embedmat = torch.clamp(metrics.calcEmbedMatrix(embed), 0, 1)
-        distmat, embedmat = mode * distmat, mode * embedmat
-
-        loss_reco = self.recocriterion(rec[0], gtimage) + \
-                    0.125 * self.recocriterion(rec[3], gtimage) + \
-                    0.25 * self.recocriterion(rec[4], gtimage)
-        loss_loca = self.locacriterion(distmat, embedmat)
-        loss = loss_reco + 10 * loss_loca
-
-        return loss, loss_reco, loss_loca
