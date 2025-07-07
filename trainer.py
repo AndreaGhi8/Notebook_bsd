@@ -17,6 +17,8 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def save_state(epoch, model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -92,31 +94,33 @@ class Trainer:
 
     def validate(self, epoch):
         self.net.eval()
-        self.train_data.apply_random_rot = False
-        self.train_data.computeDescriptors(self.net)
-        self.val_data.computeDescriptors(self.net)
 
-        with open("train_data.pickle", "wb") as handle:
-            pickle.dump(self.train_data, handle)
+        with torch.no_grad():
+            self.train_data.apply_random_rot = False
+            self.train_data.computeDescriptors(self.net)
+            self.val_data.computeDescriptors(self.net)
 
-        loca_errors, orie_errors = [], []
+            with open("train_data.pickle", "wb") as handle:
+                pickle.dump(self.train_data, handle)
 
-        print("computing metrics")
-        for query_idx in tqdm(range(0, len(self.val_data))):
-            loca_error, orie_error = visualizer.process(query_idx, self.net, self.train_data, self.val_data, plot=False)
-            loca_errors.append(loca_error)
-            orie_errors.append(orie_error)
+            loca_errors, orie_errors = [], []
 
-        avg_loca_error = np.mean(loca_errors)
-        avg_orie_error = np.mean(orie_errors)
+            print("computing metrics")
+            for query_idx in tqdm(range(0, len(self.val_data))):
+                loca_error, orie_error = visualizer.process(query_idx, self.net, self.train_data, self.val_data, plot=False)
+                loca_errors.append(loca_error)
+                orie_errors.append(orie_error)
 
-        print(f"average localization error: {avg_loca_error:6.4f} meters")
-        print(f"average orientation error : {avg_orie_error:6.4f} degrees")
+            avg_loca_error = np.mean(loca_errors)
+            avg_orie_error = np.mean(orie_errors)
 
-        if avg_loca_error < self.best_loca_error:
-            self.best_loca_error = avg_loca_error
-            self.best_model_path = f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth"
+            print(f"average localization error: {avg_loca_error:6.4f} meters")
+            print(f"average orientation error : {avg_orie_error:6.4f} degrees")
 
-        del loca_errors, orie_errors
-        torch.cuda.empty_cache()
-        gc.collect()
+            if avg_loca_error < self.best_loca_error:
+                self.best_loca_error = avg_loca_error
+                self.best_model_path = f"correct_model_3/epoch_{str(epoch).zfill(2)}.pth"
+
+            del loca_errors, orie_errors
+            torch.cuda.empty_cache()
+            gc.collect()

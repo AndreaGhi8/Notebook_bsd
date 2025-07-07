@@ -40,7 +40,7 @@ class SonarDescriptorDatasetFull(Dataset):
             self.img_source = self.img_source[self.valid_idxs]
             self.img_labels = self.img_labels[self.valid_idxs]
 
-        if False and self.training:     # REMOVE "False and" WHEN NEED TO TRAIN ALSO REAL
+        if self.training:     # REMOVE "False and" WHEN NEED TO TRAIN ALSO REAL
             idxs = np.arange(0, 1500, 1, dtype=int)
             np.random.shuffle(idxs)
             idxs = idxs[:1500]
@@ -79,8 +79,10 @@ class SonarDescriptorDatasetFull(Dataset):
             pose = load_poses.Pose(lab_path)()
             self.poses[i] = pose
 
-        self.pad = nn.ZeroPad2d((0, 0, 28, 28))
-        self.img_size = (256, 200)
+        self.pad_synth = nn.ZeroPad2d((0, 0, 28, 28))
+        self.pad_real = nn.ZeroPad2d((0, 0, 18, 18))
+        self.img_size_synth = (256, 200)
+        self.img_size_real = (256, 220)
         self.min_dx, self.min_dy = 335, -458
         self.poses[:, 0]-=self.min_dx
         self.poses[:, 1]-=self.min_dy
@@ -105,6 +107,10 @@ class SonarDescriptorDatasetFull(Dataset):
                 img_path = self.imgs[idx]
                 image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
                 image_ = np.copy(image)
+                if image_.shape == (200, 256):
+                    self.pad = nn.ZeroPad2d((0, 0, 28, 28))
+                if image_.shape == (220, 256):
+                    self.pad = nn.ZeroPad2d((0, 0, 18, 18))
                 image_ = self.pad(torch.Tensor(image_))
                 image_ = torch.Tensor(image_)
                 image_ = ( image_ / 255.0 ) - 0.5
@@ -168,6 +174,11 @@ class SonarDescriptorDatasetFull(Dataset):
         real_idx = self.synth - idx
         if real_idx < len(self.tags):
             image = cv2.flip(image, 0)
+            self.pad = self.pad_real
+            self.img_size = self.img_size_real
+        else:
+            self.pad = self.pad_synth
+            self.img_size = self.img_size_synth
        
         pose = np.copy(self.poses[idx])
         
