@@ -114,16 +114,21 @@ def count_parameters(model):
 
 def inference_time(net, train_dataloader):
     net.eval()
-    sample = next(iter(train_dataloader))[0].cuda()
+    times = []
+    for i, sample in tqdm(enumerate(train_dataloader)):
+        with torch.no_grad():
+            sample = sample[0].cuda()
+            torch.cuda.synchronize()
+            start_inf = time.time()
+            _ = net(sample)
+            torch.cuda.synchronize()
+            end_inf = time.time()
 
-    with torch.no_grad():
-        torch.cuda.synchronize()
-        start_inf = time.time()
-        _ = net(sample)
-        torch.cuda.synchronize()
-        end_inf = time.time()
-
-    inference_time_per_image = (end_inf - start_inf) / sample.size(0)
+        inference_time_per_image = (end_inf - start_inf)
+        times.append(inference_time_per_image)
+        if i>110:
+            break
+    inference_time_per_image = np.array(times[10:]).mean()
     
     return inference_time_per_image
 

@@ -40,7 +40,7 @@ class SonarDescriptorDatasetFull(Dataset):
             self.img_source = self.img_source[self.valid_idxs]
             self.img_labels = self.img_labels[self.valid_idxs]
 
-        if self.training:     # REMOVE "False and" WHEN NEED TO TRAIN ALSO REAL
+        if self.training:     # ADD "False and" when need to train without real
             idxs = np.arange(0, 1500, 1, dtype=int)
             np.random.shuffle(idxs)
             idxs = idxs[:1500]
